@@ -36,4 +36,50 @@ defmodule AllTheTagsTest do
     AllTheTags.new_tag(handle, "bar")
     assert 2 == AllTheTags.num_tags(handle)
   end
+
+  test "can create new entities", %{handle: handle} do
+    refute AllTheTags.new_entity(handle) == nil
+    refute AllTheTags.new_entity(handle) == nil
+    refute AllTheTags.new_entity(handle) == nil
+  end
+
+  test "num entities is valid", %{handle: handle} do
+    0..5 |> Enum.each(fn(i) ->
+      assert AllTheTags.num_entities(handle) == i
+      refute AllTheTags.new_entity(handle) == nil
+      assert AllTheTags.num_entities(handle) == i+1
+    end)
+  end
+
+  test "tags can be added to an entity", %{handle: handle} do
+    e = handle |> AllTheTags.new_entity
+    handle |> AllTheTags.new_tag("foo")
+    handle |> AllTheTags.new_tag("bar")
+
+    assert :ok    == AllTheTags.add_tag(handle, e, "foo")
+    assert :error == AllTheTags.add_tag(handle, e, "foo")
+  end
+
+  test "can retrieve a list of tags on the entity", %{handle: handle} do
+    e = AllTheTags.new_entity(handle)
+    handle |> AllTheTags.new_tag("foo")
+    handle |> AllTheTags.new_tag("bar")
+
+    # intially empty
+    {:ok, t} = AllTheTags.entity_tags(handle, e)
+    assert t == []
+
+    # one tag
+    :ok = AllTheTags.add_tag(handle, e, "foo")
+    {:ok, t} = AllTheTags.entity_tags(handle, e)
+    assert HashSet.equal? list_to_hs(t), list_to_hs(["foo"])
+
+    # two tags (no guarentee on orders)
+    :ok = AllTheTags.add_tag(handle, e, "bar")
+    {:ok, t} = AllTheTags.entity_tags(handle, e)
+    assert HashSet.equal? list_to_hs(t), list_to_hs(["foo", "bar"])
+  end
+  defp list_to_hs(list) do
+    Enum.into(list, HashSet.new)
+  end
 end

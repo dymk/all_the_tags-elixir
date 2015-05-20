@@ -13,8 +13,22 @@ defmodule AllTheTags do
   def new_tag(_handle, _tag_val) do
     not_loaded
   end
+  def new_entity(_handle) do
+    not_loaded
+  end
 
   def num_tags(_handle) do
+    not_loaded
+  end
+  def num_entities(_handle) do
+    not_loaded
+  end
+
+  def add_tag(_handle, _entity, _tag) do
+    not_loaded
+  end
+
+  def entity_tags(_handle, _entity) do
     not_loaded
   end
 

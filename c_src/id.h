@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-// 4 billion or so of an object allowed
+// 4 billion or so of an object allowed should be enough for anyone!
 typedef uint32_t id_type;
 
 #endif
