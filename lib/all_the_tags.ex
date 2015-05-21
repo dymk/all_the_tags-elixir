@@ -32,6 +32,10 @@ defmodule AllTheTags do
     not_loaded
   end
 
+  def do_query(_handle, _q) do
+    not_loaded
+  end
+
   defp init_lib() do
     not_loaded
   end

@@ -6,9 +6,11 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <algorithm>
+#include <utility>
 
 #include "tag.h"
 #include "entity.h"
+#include "query.h"
 
 struct Context {
 private:
@@ -81,6 +83,20 @@ public:
     }
     else {
       return nullptr;
+    }
+  }
+
+  template<class UnaryFunction>
+  void query(const QueryClause *q, UnaryFunction match) {
+
+    auto iter = id_to_entity.begin();
+    auto end = id_to_entity.end();
+    for(; iter != end; iter++) {
+      auto e = (*iter).second;
+
+      if(q->matches_set(e->tags)) {
+        match(e);
+      }
     }
   }
 

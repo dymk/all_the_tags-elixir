@@ -2,12 +2,13 @@
 #include <cassert>
 #include <cstring>
 
+#include "query.h"
 #include "context.h"
 #include "erl_helpers.h"
 
 static bool debug = true;
 
-int enif_binary_or_list_to_string(ErlNifEnv *env, ERL_NIF_TERM term, char *buf, unsigned int buflen) {
+static int enif_binary_or_list_to_string(ErlNifEnv *env, ERL_NIF_TERM term, char *buf, unsigned int buflen) {
   if(enif_is_binary(env, term)) {
     ErlNifBinary bin;
     if(!enif_inspect_binary(env, term, &bin)) {
@@ -214,6 +215,111 @@ ERL_FUNC(entity_tags) {
   return enif_make_tuple2(env, A_OK(env), res_list);
 }
 
+// converts erlang clause AST into native AST representation
+static QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context* c) {
+  if(enif_is_list(env, term) || enif_is_binary(env, term)) {
+    // literal tag string
+    // convert to string, get tag by that ID
+    char tag_val[100];
+    if(enif_binary_or_list_to_string(env, term, tag_val, 100) <= 0) {
+      // couldn't convert
+      return nullptr;
+    }
+    std::string stag_val(tag_val);
+    auto tag = c->tag_by_value(stag_val);
+    if(!tag) return nullptr;
+
+    return new QueryClauseLit(tag);
+  }
+  else if(enif_is_tuple(env, term)) {
+    // tuple in the form of {:and, a, b}
+    // or {:or, a, b}
+    const ERL_NIF_TERM *elems;
+    int arity;
+    if(!enif_get_tuple(env, term, &arity, &elems)) {
+      return nullptr;
+    }
+    // first member must be an atom
+    auto first = elems[0];
+    if(!enif_is_atom(env, first)) return nullptr;
+
+    if(arity == 2) {
+      // arity of 2 - must be a "not"
+      bool matches_not = enif_compare(first, enif_make_atom(env, "not")) == 0;
+      if(!matches_not) return nullptr;
+
+      auto e = build_clause(env, elems[1], c);
+      if(!e) return nullptr;
+
+      return new QueryClauseNot(e);
+    }
+    else if(arity == 3) {
+      // arity of 3 - "and" or "or"
+      bool matches_and = enif_compare(first, enif_make_atom(env, "and")) == 0;
+      bool matches_or  = enif_compare(first, enif_make_atom(env, "or"))  == 0;
+      assert(!(matches_and && matches_or));
+      if(!matches_and && !matches_or) {
+        return nullptr;
+      }
+
+      // AND clause
+      auto l = build_clause(env, elems[1], c);
+      if(!l) return nullptr;
+      auto r = build_clause(env, elems[2], c);
+      if(!r) return nullptr;
+
+      if(matches_and) {
+        return new QueryClauseAnd(l, r);
+      }
+      else {
+        return new QueryClauseOr(l, r);
+      }
+    }
+    else {
+      // incorrect arity (must be 2 or 3) - no matches
+      return nullptr;
+    }
+  }
+  else if(enif_is_atom(env, term)) {
+    // 'nil' represents empty query - matches everything
+    bool matches_nil = enif_compare(term, enif_make_atom(env, "nil")) == 0;
+    if(!matches_nil) return nullptr;
+
+    return new QueryClauseAny();
+  }
+  else {
+    // no other matches
+    return nullptr;
+  }
+
+  assert(false && "impossible");
+}
+
+// {handle, clause}
+ERL_FUNC(do_query) {
+  ENSURE_ARG(argc == 2);
+
+  Context *context = nullptr;
+  ENSURE_ARG(enif_get_resource(env, argv[0], context_type, (void**)&context));
+  assert(context);
+
+  if(debug) std::cout << "native: do_query called" << std::endl;
+
+  QueryClause *c = build_clause(env, argv[1], context);
+  if(c == nullptr) { return A_ERR(env); }
+
+  ERL_NIF_TERM res_list = enif_make_list(env, 0); // start with empty list
+
+  context->query(c, [&](const Entity* e) {
+    auto term = enif_make_uint(env, e->id);
+    res_list = enif_make_list_cell(env, term, res_list);
+  });
+
+  delete c;
+
+  return enif_make_tuple2(env, A_OK(env), res_list);
+}
+
 static ErlNifFunc nif_funcs[] = {
   {"init_lib",        0, init_lib,      0}, // private
   {"new",             0, new_,          0},
@@ -222,7 +328,8 @@ static ErlNifFunc nif_funcs[] = {
   {"new_entity",      1, new_entity,    0},
   {"num_entities",    1, num_entities,  0},
   {"add_tag",         3, add_tag,       0},
-  {"entity_tags",     2, entity_tags,   0}
+  {"entity_tags",     2, entity_tags,   0},
+  {"do_query",        2, do_query,      0}
 };
 
 ERL_NIF_INIT(Elixir.AllTheTags, nif_funcs, NULL, NULL, NULL, NULL)
