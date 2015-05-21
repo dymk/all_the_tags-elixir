@@ -1,4 +1,5 @@
 #include <string>
+#include <cstring>
 
 #include "erl_api_helpers.h"
 
