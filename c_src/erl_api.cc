@@ -273,6 +273,53 @@ ERL_FUNC(get_tag_children) {
   return A_OK(env);
 }
 
+ERL_FUNC(imply_tag) {
+  ENSURE_ARG(argc == 3);
+  ENSURE_CONTEXT(env, argv[0]);
+
+  Tag *implier = get_tag_from_arg(context, env, argv[1]);
+  if(!implier) return A_ERR(env);
+  Tag *implied = get_tag_from_arg(context, env, argv[2]);
+  if(!implied) return A_ERR(env);
+
+  if(!implier->imply(implied)) {
+    return A_ERR(env);
+  }
+
+  return A_OK(env);
+}
+ERL_FUNC(unimply_tag) {
+  ENSURE_ARG(argc == 3);
+  ENSURE_CONTEXT(env, argv[0]);
+
+  Tag *implier = get_tag_from_arg(context, env, argv[1]);
+  if(!implier) return A_ERR(env);
+  Tag *implied = get_tag_from_arg(context, env, argv[2]);
+  if(!implied) return A_ERR(env);
+
+  if(!implier->unimply(implied)) {
+    return A_ERR(env);
+  }
+
+  return A_OK(env);
+}
+
+ERL_FUNC(get_implies) {
+  ENSURE_ARG(argc == 2);
+  ENSURE_CONTEXT(env, argv[0]);
+
+  Tag *tag = get_tag_from_arg(context, env, argv[1]);
+  if(!tag) return A_ERR(env);
+
+  ERL_NIF_TERM res_list = enif_make_list(env, 0); // start with empty list
+
+  for(auto i : tag->implies) {
+    res_list = enif_make_list_cell(env, binary_from_string(i->value, env), res_list);
+  }
+
+  return enif_make_tuple2(env, A_OK(env), res_list);
+}
+
 static ErlNifFunc nif_funcs[] = {
   {"init_lib",         0, init_lib,         0}, // private
   {"new",              0, new_,             0},
@@ -284,7 +331,10 @@ static ErlNifFunc nif_funcs[] = {
   {"entity_tags",      2, entity_tags,      0},
   {"do_query",         2, do_query,         0},
   {"make_tag_parent",  3, make_tag_parent,  0},
-  {"get_tag_children", 2, get_tag_children, 0}
+  {"get_tag_children", 2, get_tag_children, 0},
+  {"imply_tag",        3, imply_tag,        0},
+  {"unimply_tag",      3, unimply_tag,      0},
+  {"get_implies",      2, get_implies,      0}
 };
 
 ERL_NIF_INIT(Elixir.AllTheTags, nif_funcs, NULL, NULL, NULL, NULL)

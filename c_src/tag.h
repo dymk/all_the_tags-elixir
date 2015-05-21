@@ -39,6 +39,17 @@ struct Tag {
 
     return true;
   }
+
+  // this tag implies -> other tag
+  bool imply(Tag *other) {
+    other->implied_by.insert(this);
+    return implies.insert(other).second;
+  }
+
+  bool unimply(Tag *other) {
+    other->implied_by.erase(this);
+    return implies.erase(other) == 1;
+  }
 };
 
 #endif
