@@ -18,9 +18,18 @@ LIBGTEST = c_src/test/hayai/vendor/gtest/libgtest.a
 
 TEST_FILES = $(wildcard c_src/test/*.cc)
 TEST_SRC = $(SOURCE_FILES) $(TEST_FILES)
-c_src/test/runner: $(TEST_SRC) $(H_FILES) $(wildcard c_src/test/*.h)
+c_src/test/runner: $(LIBHAYAI) $(TEST_SRC) $(H_FILES) $(wildcard c_src/test/*.h)
 	$(CXX) -o $@ $(TEST_SRC) $(LIBHAYAI) $(LIBGTEST) -I$(HAYAIDIR) -I$(GTESTDIR) $(CFLAGS)
 
+c_src/test/hayai/src/libhayai_main.a:
+	git submodule init
+	git submodule update
+	cd c_src/test/hayai; cmake .
+	make -C c_src/test/hayai
+	cd c_src/test/hayai/vendor/gtest; cmake .
+	make -C c_src/test/hayai/vendor/gtest
+
+.PHONY: test
 test: c_src/test/runner
 	./c_src/test/runner
 

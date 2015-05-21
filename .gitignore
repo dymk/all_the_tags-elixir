@@ -5,6 +5,5 @@ erl_crash.dump
 *.so
 /priv_dir
 .DS_Store
-c_src/test/hayai
 *.dSYM
 runner
