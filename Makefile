@@ -1,8 +1,14 @@
 ERLANG_PATH = $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])])' -s init stop -noshell)
 CFLAGS = -g -std=c++11 -pedantic -Wall -Wextra -Ic_src
 
+UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 	LDFLAGS += -undefined dynamic_lookup -dynamiclib
+endif
+
+# when using g++, gtest requires pthreads
+ifeq ($(UNAME_S),Linux)
+	CFLAGS += -lpthread
 endif
 
 ERL_API_FILES = $(wildcard c_src/erl_api/*.cc)
@@ -31,12 +37,6 @@ c_src/test/hayai/src/libhayai_main.a:
 	make -C c_src/test/hayai
 	cd c_src/test/hayai/vendor/gtest; cmake .
 	make -C c_src/test/hayai/vendor/gtest
-
-# when using g++, gtest requires pthreads
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Linux)
-	CFLAGS += -lpthread
-endif
 
 .PHONY: test
 test: c_src/test/runner
