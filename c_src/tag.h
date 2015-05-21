@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unordered_set>
+#include <cassert>
 
 #include "id.h"
 
@@ -21,6 +22,8 @@ struct Tag {
     id(_id), value(_value), parent(nullptr) {}
 
   bool set_parent(Tag *parent) {
+    if(!parent) return false;
+
     // check for cycles
     auto p = parent;
     while(p->parent) {
@@ -30,13 +33,17 @@ struct Tag {
 
 
     // remove ourselves from current parent's children list (if we have one)
-    if(this->parent) {
-      this->parent->children.erase(this);
-    }
-
+    unset_parent();
     this->parent = parent;
     parent->children.insert(this);
 
+    return true;
+  }
+
+  bool unset_parent() {
+    if(parent == nullptr) return false;
+    this->parent->children.erase(this);
+    this->parent = nullptr;
     return true;
   }
 

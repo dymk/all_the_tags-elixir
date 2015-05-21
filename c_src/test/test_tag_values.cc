@@ -1,6 +1,8 @@
 #include "gtest/gtest.h"
 #include "context.h"
 
+#define SET(T, ARR) std::unordered_set<T>(ARR)
+
 TEST(ContextTest, DupTagCreation) {
   Context c;
   ASSERT_TRUE(c.new_tag("foo"));
@@ -22,4 +24,37 @@ TEST(ContextTest, TagParenting) {
 
   ASSERT_TRUE(t1->set_parent(t2));
   ASSERT_FALSE(t2->set_parent(t1));
+}
+
+TEST(ContextTest, TagChildren) {
+  Context c;
+  auto t1 = c.new_tag("foo");
+  auto t2 = c.new_tag("bar");
+  ASSERT_NE(t1, t2);
+
+  ASSERT_TRUE(t1->set_parent(t2));
+  ASSERT_EQ(t2->children, SET(Tag*, {t1}));
+
+  ASSERT_FALSE(t2->set_parent(t1));
+  ASSERT_EQ(t1->children, SET(Tag*, {}));
+}
+
+TEST(ContextTest, NullParent) {
+  Context c;
+  auto t1 = c.new_tag("foo");
+  ASSERT_FALSE(t1->set_parent(nullptr));
+}
+
+TEST(ContextTest, UnsetParent) {
+  Context c;
+  auto t1 = c.new_tag("foo");
+  auto t2 = c.new_tag("bar");
+  ASSERT_NE(t1, t2);
+
+  t1->set_parent(t2);
+  ASSERT_TRUE(t1->unset_parent());
+  ASSERT_FALSE(t1->unset_parent());
+
+  ASSERT_EQ(t1->parent, nullptr);
+  ASSERT_EQ(t2->children, SET(Tag*, {}));
 }
