@@ -1,7 +1,6 @@
 #include "gtest/gtest.h"
 #include "context.h"
-
-#define SET(T, ARR) std::unordered_set<T>(ARR)
+#include "test_helper.h"
 
 TEST(ContextTest, DupTagCreation) {
   Context c;

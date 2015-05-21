@@ -19,6 +19,10 @@ struct Entity {
   bool add_tag(Tag* t) {
     return tags.insert(t).second;
   }
+
+  bool remove_tag(Tag* t) {
+    return tags.erase(t) == 1;
+  }
 };
 
 #endif

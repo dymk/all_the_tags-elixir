@@ -31,7 +31,6 @@ struct Tag {
       p = p->parent;
     }
 
-
     // remove ourselves from current parent's children list (if we have one)
     unset_parent();
     this->parent = parent;

@@ -20,15 +20,16 @@ API_LIB_SRC = $(SOURCE_FILES) $(ERL_API_FILES)
 priv_dir/lib_tags.so: priv_dir $(API_LIB_SRC) $(H_FILES) $(wildcard c_src/erl_api/*.h)
 	$(CXX) -o $@ $(API_LIB_SRC) -I$(ERLANG_PATH) -fPIC $(LDLIBS) $(LDFLAGS) $(CFLAGS) -shared
 
-LIBHAYAI = c_src/test/hayai/src/libhayai_main.a
-HAYAIDIR = c_src/test/hayai/src
-GTESTDIR = c_src/test/hayai/vendor/gtest/include
-LIBGTEST = c_src/test/hayai/vendor/gtest/libgtest.a
+TESTDIR  = c_src/test
+LIBHAYAI = $(TESTDIR)/hayai/src/libhayai_main.a
+HAYAIDIR = $(TESTDIR)/hayai/src
+GTESTDIR = $(TESTDIR)/hayai/vendor/gtest/include
+LIBGTEST = $(TESTDIR)/hayai/vendor/gtest/libgtest.a
 
-TEST_FILES = $(wildcard c_src/test/*.cc)
+TEST_FILES = $(wildcard $(TESTDIR)/*.cc)
 TEST_SRC = $(SOURCE_FILES) $(TEST_FILES)
-c_src/test/runner: $(LIBHAYAI) $(TEST_SRC) $(H_FILES) $(wildcard c_src/test/*.h)
-	$(CXX) -o $@ $(TEST_SRC) $(LIBHAYAI) $(LIBGTEST) -I$(HAYAIDIR) -I$(GTESTDIR) $(CFLAGS)
+c_src/test/runner: $(LIBHAYAI) $(TEST_SRC) $(H_FILES) $(wildcard $(TESTDIR)/*.h)
+	$(CXX) -o $@ $(TEST_SRC) $(LIBHAYAI) $(LIBGTEST) -I$(HAYAIDIR) -I$(GTESTDIR) -I$(TESTDIR) $(CFLAGS)
 
 c_src/test/hayai/src/libhayai_main.a:
 	git submodule init
