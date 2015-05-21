@@ -36,6 +36,10 @@ defmodule AllTheTags do
     not_loaded
   end
 
+  def make_tag_parent(_handle, _parent, _child) do
+    not_loaded
+  end
+
   defp init_lib() do
     not_loaded
   end

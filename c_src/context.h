@@ -17,93 +17,29 @@ private:
   id_type last_tag_id;
   id_type last_entity_id;
 
-  // std::vector<Tag*>    tags; // TODO: probably don't need this
-  // std::vector<Entity*> entities;
-
   std::unordered_map<std::string, Tag*> value_to_tag;
   std::unordered_map<id_type,     Tag*> id_to_tag;
 
   std::unordered_map<id_type,  Entity*> id_to_entity;
 
 public:
-  Context() : last_tag_id(0), last_entity_id(0)
-  {}
+  Context() : last_tag_id(0), last_entity_id(0) {}
+  ~Context();
 
-  ~Context() {
-    {
-      auto itr = id_to_tag.begin();
-      auto end = id_to_tag.end();
-      for(; itr != end; itr++) {
-        delete (*itr).second;
-      }
-    }
-    {
-      auto itr = id_to_entity.begin();
-      auto end = id_to_entity.end();
-      for(; itr != end; itr++) {
-        delete (*itr).second;
-      }
-    }
-  }
+  // returns a new tag with value 'val'
+  Tag *new_tag(const std::string& val);
 
-  Tag *new_tag(const std::string& val) {
-    std::string tmp = val;
-    std::transform(tmp.begin(), tmp.end(), tmp.begin(), ::tolower);
+  // returns a newly created entity
+  Entity *new_entity();
 
-    if(tag_by_value(val)) {
-      return nullptr;
-    }
+  // look up tag by value or id
+  Tag* tag_by_value(const std::string& val) const;
+  Tag* tag_by_id(id_type tid) const;
 
-    auto t = new Tag(last_tag_id++, val);
+  // look up entity by id
+  Entity* entity_by_id(id_type eid) const;
 
-    // tags.push_back(t); // record in master tags list
-    value_to_tag.insert(std::make_pair(tmp, t)); // all values
-    id_to_tag.insert(std::make_pair(t->id, t));
-
-    return t;
-  }
-
-  Entity *new_entity() {
-    auto e = new Entity(last_entity_id++);
-    id_to_entity.insert(std::make_pair(e->id, e));
-    return e;
-  }
-
-  // tag lookup functions
-  Tag* tag_by_value(const std::string& val) const {
-    // downcase the string
-    std::string tmp = val;
-    std::transform(tmp.begin(), tmp.end(), tmp.begin(), ::tolower);
-
-    auto iter = value_to_tag.find(tmp);
-    if(iter != value_to_tag.end()) {
-      return (*iter).second;
-    }
-    else {
-      return nullptr;
-    }
-  }
-  Tag* tag_by_id(id_type tid) const {
-    auto iter = id_to_tag.find(tid);
-    if(iter != id_to_tag.end()) {
-      return (*iter).second;
-    }
-    else {
-      return nullptr;
-    }
-  }
-
-  // entity lookup functions
-  Entity* entity_by_id(id_type eid) const {
-    auto iter = id_to_entity.find(eid);
-    if(iter != id_to_entity.end()) {
-      return (*iter).second;
-    }
-    else {
-      return nullptr;
-    }
-  }
-
+  // calls 'match' with all entities that match the QueryClause
   template<class UnaryFunction>
   void query(const QueryClause *q, UnaryFunction match) {
 

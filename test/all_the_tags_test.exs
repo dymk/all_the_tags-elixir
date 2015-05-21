@@ -75,12 +75,6 @@ defmodule AllTheTagsTest do
     {:ok, t} = AllTheTags.entity_tags(handle, e)
     assert same_lists(t, ["foo", "bar"])
   end
-  defp same_lists(l1, l2) do
-    HashSet.equal? list_to_hs(l1), list_to_hs(l2)
-  end
-  defp list_to_hs(list) do
-    Enum.into(list, HashSet.new)
-  end
 
   test "tag query works", %{handle: handle} do
     e = set_up_e(handle)
@@ -129,9 +123,27 @@ defmodule AllTheTagsTest do
     assert same_lists(res, [f, g])
   end
 
-  def set_up_e(handle) do
+  test "query with unknown tags", %{handle: handle} do
+    e = handle |> AllTheTags.new_entity
+    assert {:ok, [e]} == AllTheTags.do_query(handle, nil)
+    assert :error     == AllTheTags.do_query(handle, "blah")
+  end
+
+  test "tag parenting", %{handle: handle} do
+    handle |> set_up_e
+    assert :ok == AllTheTags.make_tag_parent(handle, "foo", "bar")
+  end
+
+  defp set_up_e(handle) do
     handle |> AllTheTags.new_tag("foo")
     handle |> AllTheTags.new_tag("bar")
     e = handle |> AllTheTags.new_entity
+    e
+  end
+  defp same_lists(l1, l2) do
+    HashSet.equal? list_to_hs(l1), list_to_hs(l2)
+  end
+  defp list_to_hs(list) do
+    Enum.into(list, HashSet.new)
   end
 end
