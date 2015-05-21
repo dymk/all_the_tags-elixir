@@ -4,3 +4,7 @@ erl_crash.dump
 *.ez
 *.so
 /priv_dir
+.DS_Store
+c_src/test/hayai
+*.dSYM
+runner

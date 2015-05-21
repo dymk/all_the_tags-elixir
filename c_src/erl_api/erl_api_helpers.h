@@ -15,9 +15,6 @@
 
 #define ERL_FUNC(func_name) static ERL_NIF_TERM func_name(ErlNifEnv *env, int argc, const ERL_NIF_TERM *argv)
 
-#define xstr(s) str(s)
-#define str(s) #s
-
 #define ENSURE_CONTEXT(env, arg) \
   Context *context = nullptr; \
   assert(context_type); \
