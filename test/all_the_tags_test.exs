@@ -98,9 +98,13 @@ defmodule AllTheTagsTest do
   test "query on entity with tags", %{handle: handle} do
     e = set_up_e(handle)
     f = handle |> AllTheTags.new_entity
+    g = handle |> AllTheTags.new_entity
 
     :ok = handle |> AllTheTags.add_tag(e, "foo")
     :ok = handle |> AllTheTags.add_tag(f, "bar")
+    # e has "foo"
+    # f has "bar"
+    # g has none
 
     {:ok, res} = handle |> AllTheTags.do_query("foo")
     assert same_lists(res, [e])
@@ -116,13 +120,13 @@ defmodule AllTheTagsTest do
 
     # nil should include all entities
     {:ok, res} = handle |> AllTheTags.do_query(nil)
-    assert same_lists(res, [e, f])
+    assert same_lists(res, [e, f, g])
 
     {:ok, res} = handle |> AllTheTags.do_query({:not, nil})
     assert same_lists(res, [])
 
     {:ok, res} = handle |> AllTheTags.do_query({:not, "foo"})
-    assert same_lists(res, [f])
+    assert same_lists(res, [f, g])
   end
 
   def set_up_e(handle) do

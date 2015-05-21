@@ -24,9 +24,27 @@ private:
   std::unordered_map<id_type,     Tag*> id_to_tag;
 
   std::unordered_map<id_type,  Entity*> id_to_entity;
+
 public:
   Context() : last_tag_id(0), last_entity_id(0)
   {}
+
+  ~Context() {
+    {
+      auto itr = id_to_tag.begin();
+      auto end = id_to_tag.end();
+      for(; itr != end; itr++) {
+        delete (*itr).second;
+      }
+    }
+    {
+      auto itr = id_to_entity.begin();
+      auto end = id_to_entity.end();
+      for(; itr != end; itr++) {
+        delete (*itr).second;
+      }
+    }
+  }
 
   Tag *new_tag(const std::string& val) {
     std::string tmp = val;
