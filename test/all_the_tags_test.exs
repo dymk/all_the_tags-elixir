@@ -68,7 +68,7 @@ defmodule AllTheTagsTest do
     # one tag
     :ok = AllTheTags.add_tag(handle, e, "foo")
     {:ok, t} = AllTheTags.entity_tags(handle, e)
-    assert same_lists(t, ["foo"])
+    assert t == ["foo"]
 
     # two tags (no guarentee on orders)
     :ok = AllTheTags.add_tag(handle, e, "bar")
