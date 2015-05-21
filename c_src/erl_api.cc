@@ -1,37 +1,13 @@
 #include <iostream>
 #include <cassert>
 #include <cstring>
+#include <numeric>
 
 #include "query.h"
 #include "context.h"
-#include "erl_helpers.h"
+#include "erl_api_helpers.h"
 
 static bool debug = false;
-
-static int enif_binary_or_list_to_string(ErlNifEnv *env, ERL_NIF_TERM term, char *buf, unsigned int buflen) {
-  if(enif_is_binary(env, term)) {
-    ErlNifBinary bin;
-    if(!enif_inspect_binary(env, term, &bin)) {
-      return -1;
-    }
-
-    if(bin.size >= buflen) {
-      // can't fit buffer into buflen
-      return -1;
-    }
-
-    // can fit binary into buffer
-    // TODO: figure out way to just return the binary buffer rather than copy
-    strncpy(buf, (const char*)bin.data, bin.size);
-    buf[bin.size] = '\0';
-    return bin.size;
-  }
-  else if(enif_is_list(env, term)) {
-    return enif_get_string(env, term, buf, buflen, ERL_NIF_LATIN1);
-  }
-
-  return -1;
-}
 
 ErlNifResourceType *context_type = nullptr;
 static void context_resource_cleanup(ErlNifEnv *env, void *arg) {
@@ -39,8 +15,8 @@ static void context_resource_cleanup(ErlNifEnv *env, void *arg) {
   if(debug) std::cout << "native: cleaning up resource (STUB)" << std::endl;
 
   assert(arg);
-  // Context *context = (Context*) arg;
-  // context->~Context();
+  Context *context = (Context*) arg;
+  context->~Context();
 }
 
 // main entrypoint that erlang talks to to perform queries on
@@ -75,7 +51,6 @@ ERL_FUNC(new_) {
   ENSURE_ARG(argc == 0);
 
   assert(context_type);
-
   Context *context = (Context*)enif_alloc_resource(context_type, sizeof(Context));
   if(context == nullptr) {
     if(debug) std::cout << "native: could not allocate resource" << std::endl;
@@ -94,18 +69,8 @@ ERL_FUNC(new_) {
 }
 
 ERL_FUNC(new_tag) {
-  if(argc != 2) {
-    if(debug) std::cout << "native: new_tag called without 2 args: " << argc << std::endl;
-    return enif_make_badarg(env);
-  }
-
-  Context *context = nullptr;
-  assert(context_type);
-  if(!enif_get_resource(env, argv[0], context_type, (void**)&context)) {
-    if(debug) std::cout << "native: could not get resource from handle" << std::endl;
-    return enif_make_badarg(env);
-  }
-  assert(context);
+  ENSURE_ARG(argc == 2);
+  ENSURE_CONTEXT(env, argv[0]);
 
   char value[100];
   ENSURE_ARG(enif_binary_or_list_to_string(env, argv[1], value, 100) > 0);
@@ -123,20 +88,14 @@ ERL_FUNC(new_tag) {
 
 ERL_FUNC(num_tags) {
   ENSURE_ARG(argc == 1);
-
-  Context *context = nullptr;
-  ENSURE_ARG(enif_get_resource(env, argv[0], context_type, (void**)&context));
-  assert(context);
+  ENSURE_CONTEXT(env, argv[0]);
 
   return enif_make_uint(env, context->num_tags());
 }
 
 ERL_FUNC(new_entity) {
   ENSURE_ARG(argc == 1);
-
-  Context *context = nullptr;
-  ENSURE_ARG(enif_get_resource(env, argv[0], context_type, (void**)&context));
-  assert(context);
+  ENSURE_CONTEXT(env, argv[0]);
 
   auto e = context->new_entity();
   return enif_make_uint(env, e->id);
@@ -155,10 +114,7 @@ ERL_FUNC(num_entities) {
 // {handle, entity_id, tag_value}
 ERL_FUNC(add_tag) {
   ENSURE_ARG(argc == 3);
-
-  Context *context = nullptr;
-  ENSURE_ARG(enif_get_resource(env, argv[0], context_type, (void**)&context));
-  assert(context);
+  ENSURE_CONTEXT(env, argv[0]);
 
   id_type entity_id;
   ENSURE_ARG(enif_get_uint(env, argv[1], &entity_id));
@@ -181,128 +137,97 @@ ERL_FUNC(add_tag) {
 
 ERL_FUNC(entity_tags) {
   ENSURE_ARG(argc == 2);
-
-  Context *context = nullptr;
-  ENSURE_ARG(enif_get_resource(env, argv[0], context_type, (void**)&context));
-  assert(context);
+  ENSURE_CONTEXT(env, argv[0]);
 
   id_type entity_id;
   ENSURE_ARG(enif_get_uint(env, argv[1], &entity_id));
   auto entity = context->entity_by_id(entity_id);
   if(!entity) return A_ERR(env);
 
-  ERL_NIF_TERM res_list = enif_make_list(env, 0); // start with empty list
-  {
-    // TODO: cache the tag value as a binary somewhere and reuse it
-    auto itr = entity->tags.begin();
-    auto end = entity->tags.end();
+  std::unordered_set<Tag*>                            all_set; // superset of all other sets
+  std::unordered_set<Tag*>                            direct;  // direclty tagged on the entity
+  std::unordered_map<Tag*, Tag*>                      parents; // parents of other tags
+  std::unordered_map<Tag*, std::unordered_set<Tag*> > implied; // implied by another tag on the post
 
-    for(; itr != end; itr++) {
-      auto tag = *itr;
-      auto tv = tag->value;
-
-      // allocate a new binary
-      ErlNifBinary bin;
-      if(!enif_alloc_binary(tv.size(), &bin)) return A_ERR(env);
-      // copy c string value into the binary
-      assert(bin.size == tv.size());
-      strncpy((char*)bin.data, tv.c_str(), bin.size);
-
-      auto term = enif_make_binary(env, &bin);
-      res_list = enif_make_list_cell(env, term, res_list);
-    }
+  // initialize direct tags and their parents
+  for(Tag *tag : entity->tags) {
+    direct.insert(tag);
+    all_set.insert(tag);
   }
+
+  do {
+    std::unordered_set<Tag*> tmp_all_set = all_set;
+
+    for(Tag *tag : all_set) {
+      auto p = tag;
+      while(p->parent) {
+        tmp_all_set.insert(p->parent);
+        parents.insert(std::make_pair(p->parent, p));
+        p = p->parent;
+      }
+
+      // walk impliers
+      for(Tag *imp : tag->implies) {
+        auto i = implied.find(imp);
+        if(i == implied.end()) {
+          implied.insert(std::make_pair(imp, std::unordered_set<Tag*>()));
+          i = implied.find(imp);
+        }
+        assert(i != implied.end());
+        tmp_all_set.insert(imp);
+        (*i).second.insert(tag);
+      }
+    }
+
+    // iterate over tags that are all directly on the entity
+    // walk parent tree
+
+    if(tmp_all_set.size() == all_set.size()) break;
+    all_set = std::move(tmp_all_set);
+  } while(true);
+
+  ERL_NIF_TERM res_list = enif_make_list(env, 0); // start with empty list
+
+  for(Tag* tag : direct) {
+    auto term = binary_from_string(tag->value, env);
+    if(enif_is_exception(env, term)) return term;
+    res_list = enif_make_list_cell(env,
+      enif_make_tuple2(env, enif_make_atom(env, "direct"), term), res_list);
+  }
+
+  for(auto pair : parents) {
+    auto implied = pair.first;
+    auto implier = pair.second;
+
+    auto imterm = binary_from_string(implied->value, env);
+    if(enif_is_exception(env, imterm)) return imterm;
+    auto erterm = binary_from_string(implier->value, env);
+    if(enif_is_exception(env, erterm)) return erterm;
+
+    res_list = enif_make_list_cell(env,
+      enif_make_tuple3(env, enif_make_atom(env, "parent"), imterm, erterm), res_list);
+  }
+
+  // for(auto pair : implied) {
+  //   auto implied = pair.first;
+  //   auto implier = pair.second;
+
+  //   auto imterm = binary_from_string(implied->value, env);
+  //   if(enif_is_exception(env, imterm)) return imterm;
+  //   auto erterm = binary_from_string(implier->value, env);
+  //   if(enif_is_exception(env, erterm)) return erterm;
+
+  //   res_list = enif_make_list_cell(env,
+  //     enif_make_tuple3(env, enif_make_atom(env, "implied"), imterm, erterm), res_list);
+  // }
 
   return enif_make_tuple2(env, A_OK(env), res_list);
-}
-
-// converts erlang clause AST into native AST representation
-static QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context* c) {
-  if(enif_is_list(env, term) || enif_is_binary(env, term)) {
-    // literal tag string
-    // convert to string, get tag by that ID
-    char tag_val[100];
-    if(enif_binary_or_list_to_string(env, term, tag_val, 100) <= 0) {
-      // couldn't convert
-      return nullptr;
-    }
-    std::string stag_val(tag_val);
-    auto tag = c->tag_by_value(stag_val);
-    if(!tag) return nullptr;
-
-    return new QueryClauseLit(tag);
-  }
-  else if(enif_is_tuple(env, term)) {
-    // tuple in the form of {:and, a, b}
-    // or {:or, a, b}
-    const ERL_NIF_TERM *elems;
-    int arity;
-    if(!enif_get_tuple(env, term, &arity, &elems)) {
-      return nullptr;
-    }
-    // first member must be an atom
-    auto first = elems[0];
-    if(!enif_is_atom(env, first)) return nullptr;
-
-    if(arity == 2) {
-      // arity of 2 - must be a "not"
-      bool matches_not = enif_compare(first, enif_make_atom(env, "not")) == 0;
-      if(!matches_not) return nullptr;
-
-      auto e = build_clause(env, elems[1], c);
-      if(!e) return nullptr;
-
-      return new QueryClauseNot(e);
-    }
-    else if(arity == 3) {
-      // arity of 3 - "and" or "or"
-      bool matches_and = enif_compare(first, enif_make_atom(env, "and")) == 0;
-      bool matches_or  = enif_compare(first, enif_make_atom(env, "or"))  == 0;
-      assert(!(matches_and && matches_or));
-      if(!matches_and && !matches_or) {
-        return nullptr;
-      }
-
-      // AND clause
-      auto l = build_clause(env, elems[1], c);
-      if(!l) return nullptr;
-      auto r = build_clause(env, elems[2], c);
-      if(!r) return nullptr;
-
-      if(matches_and) {
-        return new QueryClauseAnd(l, r);
-      }
-      else {
-        return new QueryClauseOr(l, r);
-      }
-    }
-    else {
-      // incorrect arity (must be 2 or 3) - no matches
-      return nullptr;
-    }
-  }
-  else if(enif_is_atom(env, term)) {
-    // 'nil' represents empty query - matches everything
-    bool matches_nil = enif_compare(term, enif_make_atom(env, "nil")) == 0;
-    if(!matches_nil) return nullptr;
-
-    return new QueryClauseAny();
-  }
-  else {
-    // no other matches
-    return nullptr;
-  }
-
-  assert(false && "impossible");
 }
 
 // {handle, clause}
 ERL_FUNC(do_query) {
   ENSURE_ARG(argc == 2);
-
-  Context *context = nullptr;
-  ENSURE_ARG(enif_get_resource(env, argv[0], context_type, (void**)&context));
-  assert(context);
+  ENSURE_CONTEXT(env, argv[0]);
 
   if(debug) std::cout << "native: do_query called" << std::endl;
 
@@ -324,39 +249,42 @@ ERL_FUNC(do_query) {
 
 ERL_FUNC(make_tag_parent) {
   ENSURE_ARG(argc == 3);
+  ENSURE_CONTEXT(env, argv[0]);
 
-  Context *context = nullptr;
-  ENSURE_ARG(enif_get_resource(env, argv[0], context_type, (void**)&context));
-  assert(context);
-
-  char tv[100];
-  ENSURE_ARG(enif_binary_or_list_to_string(env, argv[1], tv, 100) > 0);
-  std::string parent_tag_val(tv);
-  auto parent = context->tag_by_value(parent_tag_val);
+  auto parent = get_tag_from_arg(context, env, argv[1]);
   if(!parent) return A_ERR(env);
 
-  ENSURE_ARG(enif_binary_or_list_to_string(env, argv[2], tv, 100) > 0);
-  std::string child_tag_val(tv);
-  auto child = context->tag_by_value(child_tag_val);
+  auto child = get_tag_from_arg(context, env, argv[2]);
   if(!child) return A_ERR(env);
 
   // set parent
-  child->parent = parent;
+  if(!child->set_parent(parent)) return A_ERR(env);
+
+  return A_OK(env);
+}
+
+ERL_FUNC(get_tag_children) {
+  ENSURE_ARG(argc == 2);
+  ENSURE_CONTEXT(env, argv[0]);
+
+  Tag *tag = get_tag_from_arg(context, env, argv[1]);
+  if(!tag) return A_ERR(env);
 
   return A_OK(env);
 }
 
 static ErlNifFunc nif_funcs[] = {
-  {"init_lib",        0, init_lib,      0}, // private
-  {"new",             0, new_,          0},
-  {"new_tag" ,        2, new_tag,       0},
-  {"num_tags",        1, num_tags,      0},
-  {"new_entity",      1, new_entity,    0},
-  {"num_entities",    1, num_entities,  0},
-  {"add_tag",         3, add_tag,       0},
-  {"entity_tags",     2, entity_tags,   0},
-  {"do_query",        2, do_query,      0},
-  {"make_tag_parent", 3, make_tag_parent, 0}
+  {"init_lib",         0, init_lib,         0}, // private
+  {"new",              0, new_,             0},
+  {"new_tag" ,         2, new_tag,          0},
+  {"num_tags",         1, num_tags,         0},
+  {"new_entity",       1, new_entity,       0},
+  {"num_entities",     1, num_entities,     0},
+  {"add_tag",          3, add_tag,          0},
+  {"entity_tags",      2, entity_tags,      0},
+  {"do_query",         2, do_query,         0},
+  {"make_tag_parent",  3, make_tag_parent,  0},
+  {"get_tag_children", 2, get_tag_children, 0}
 };
 
 ERL_NIF_INIT(Elixir.AllTheTags, nif_funcs, NULL, NULL, NULL, NULL)

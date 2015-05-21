@@ -68,12 +68,12 @@ defmodule AllTheTagsTest do
     # one tag
     :ok = AllTheTags.add_tag(handle, e, "foo")
     {:ok, t} = AllTheTags.entity_tags(handle, e)
-    assert t == ["foo"]
+    assert t == [{:direct, "foo"}]
 
     # two tags (no guarentee on orders)
     :ok = AllTheTags.add_tag(handle, e, "bar")
     {:ok, t} = AllTheTags.entity_tags(handle, e)
-    assert same_lists(t, ["foo", "bar"])
+    assert same_lists(t, [{:direct, "foo"}, {:direct, "bar"}])
   end
 
   test "tag query works", %{handle: handle} do
@@ -132,6 +132,27 @@ defmodule AllTheTagsTest do
   test "tag parenting", %{handle: handle} do
     handle |> set_up_e
     assert :ok == AllTheTags.make_tag_parent(handle, "foo", "bar")
+  end
+
+  test "can't create circular tag parents", %{handle: handle} do
+    handle |> set_up_e
+    assert :ok    == AllTheTags.make_tag_parent(handle, "foo", "bar")
+    assert :error == AllTheTags.make_tag_parent(handle, "bar", "foo")
+  end
+
+  test "can't create circular tag parents", %{handle: handle} do
+    handle |> set_up_e
+    assert :ok    == AllTheTags.make_tag_parent(handle, "foo", "bar")
+    assert :error == AllTheTags.make_tag_parent(handle, "bar", "foo")
+  end
+
+  test "parented tag is implied on the child", %{handle: handle} do
+    e = handle |> set_up_e
+    handle |> AllTheTags.make_tag_parent("foo", "bar")
+    handle |> AllTheTags.add_tag(e, "bar")
+
+    {:ok, res} = handle |> AllTheTags.entity_tags(e)
+    assert same_lists([{:direct, "bar"}, {:parent, "foo", "bar"}], res)
   end
 
   defp set_up_e(handle) do

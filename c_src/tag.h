@@ -9,8 +9,13 @@
 struct Tag {
   id_type id;
   std::string value;
+
   Tag *parent;
   std::unordered_set<Tag*> children;
+
+  // TODO: implement tag implications
+  std::unordered_set<Tag*> implies;
+  std::unordered_set<Tag*> implied_by;
 
   Tag(id_type _id, const std::string& _value) :
     id(_id), value(_value), parent(nullptr) {}

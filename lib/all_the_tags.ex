@@ -40,6 +40,10 @@ defmodule AllTheTags do
     not_loaded
   end
 
+  def get_tag_children(_handle, _tag) do
+    not_loaded
+  end
+
   defp init_lib() do
     not_loaded
   end
