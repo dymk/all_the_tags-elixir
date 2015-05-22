@@ -1,14 +1,50 @@
 #include "query.h"
+#include "context.h"
 
 #include <stack>
 #include <queue>
 #include <vector>
 
+int QueryClauseMetaNode::entity_count() const {
+  return node->entity_count();
+}
+void QueryClauseMetaNode::debug_print(int indent) const {
+  print_indent(indent);
+  std::cerr << "meta(" << entity_count() << ") -> (";
+  bool first = true;
+  for(auto tag : node->tags) {
+    if(!first) std::cerr << ", ";
+    first = false;
+    std::cerr << tag->value;
+  }
+  std::cerr << ")" << std::endl;
+}
+
 QueryClause *build_lit(Tag *tag) {
   QueryClause *clause = new QueryClauseLit(tag);
   for(auto child : tag->children) {
     // add parent chain to "or" tree (any of the parents match lit)
-    clause = new QueryClauseBin(QueryClauseOr, clause, build_lit(child));
+    clause = build_or(clause, build_lit(child));
+  }
+
+  // TODO: if a parent has a ton of children, might be better
+  // to do more expensive range-based check?
+  if(tag->meta_node) {
+    std::unordered_set<SCCMetaNode*> meta_nodes;
+
+    std::function<void(SCCMetaNode*)> recurse = [&](SCCMetaNode *node) {
+      meta_nodes.insert(node);
+      for(auto parent : node->parents) {
+        recurse(parent);
+      }
+    };
+
+    // collect all reachable metanodes from this node into meta_nodes
+    recurse(tag->meta_node);
+
+    for(auto node : meta_nodes) {
+      clause = build_or(clause, new QueryClauseMetaNode(node));
+    }
   }
 
   return clause;

@@ -9,6 +9,7 @@
 
 // needs forward declaration because C++ uses goddamn textual inclusion
 struct Context;
+struct SCCMetaNode;
 
 struct Tag {
   id_type id;
@@ -25,6 +26,9 @@ struct Tag {
   // pre/post count of the tag in its parent/child tree
   int pre, post;
 
+  // DAG SCC meta node that the tag belongs to
+  SCCMetaNode *meta_node;
+
   // how many entities have this particular tag
   int _entity_count;
 
@@ -35,6 +39,7 @@ public:
     context(context_),
     pre(-1),
     post(-1),
+    meta_node(nullptr),
     _entity_count(0) {}
 
   bool set_parent(Tag *parent);
@@ -63,14 +68,8 @@ public:
   }
 
   // this tag implies -> other tag
-  bool imply(Tag *other) {
-    other->implied_by.insert(this);
-    return implies.insert(other).second;
-  }
-  bool unimply(Tag *other) {
-    other->implied_by.erase(this);
-    return implies.erase(other) == 1;
-  }
+  bool imply(Tag *other);
+  bool unimply(Tag *other);
 
   int entity_count() const {
     return _entity_count;

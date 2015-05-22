@@ -13,6 +13,29 @@
 
 struct Tag;
 
+struct SCCMetaNode {
+  int pre, post;
+
+  std::unordered_set<SCCMetaNode*> children;
+  std::unordered_set<SCCMetaNode*> parents;
+  std::unordered_set<Tag*>         tags;
+
+  SCCMetaNode()
+    : pre(-1), post(-1) {}
+
+  bool add_child(SCCMetaNode* c) {
+    this->children.insert(c);
+    return c->parents.insert(this).second;
+  }
+
+  bool remove_child(SCCMetaNode* c) {
+    this->children.erase(c);
+    return c->parents.erase(this) == 1;
+  }
+
+  int entity_count() const;
+};
+
 struct Context {
 private:
   id_type last_tag_id;
@@ -22,6 +45,10 @@ private:
   std::unordered_map<id_type,     Tag*> id_to_tag;
 
   std::unordered_map<id_type,  Entity*> id_to_entity;
+
+  // meta nodes representing the DAG of tag implications
+  std::unordered_set<SCCMetaNode*> meta_nodes;
+  std::unordered_set<SCCMetaNode*> sink_meta_nodes;
 
 public:
   std::unordered_set<Tag*> root_tags;
@@ -43,9 +70,13 @@ public:
   Tag* tag_by_value(const std::string& val) const;
   Tag* tag_by_id(id_type tid) const;
 
-  // marks the tag graph as dirty, and to recalc it before
-  // any other queries
-  void dirty_tag_graph(Tag* dirtying_tag);
+  // notify the context that a node gained or
+  // removed a parent, and to recalculate the tag tree's pre/post numbers
+  void dirty_tag_parent_tree(Tag* dirtying_tag);
+
+  // notify the context that 'dirtying_tag' gained/lost 'other' as an implied
+  // tag. 'gained_imply' true if it now implies other, false if implication removed
+  void dirty_tag_imply_dag(Tag* dirtying_tag, bool gained_imply, Tag* other);
 
   // look up entity by id
   Entity* entity_by_id(id_type eid) const;

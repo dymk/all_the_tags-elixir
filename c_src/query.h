@@ -10,6 +10,7 @@
 struct QueryClause;
 struct QueryClauseBin;
 struct QueryClauseNot;
+struct SCCMetaNode;
 
 QueryClause    *build_lit(Tag *tag);
 QueryClauseBin *build_and(QueryClause *r, QueryClause *l);
@@ -57,7 +58,7 @@ struct QueryClauseNot : public QueryClause {
 
   virtual void debug_print(int indent = 0) const {
     print_indent(indent);
-    std::cerr << "not ->" << std::endl;
+    std::cerr << "not(" << entity_count() << ") ->" << std::endl;
     c->debug_print(indent + 1);
   }
 
@@ -99,7 +100,10 @@ struct QueryClauseBin : public QueryClause {
 
   virtual void debug_print(int indent = 0) const {
     print_indent(indent);
-    std::cerr << "bin(" << (type == QueryClauseAnd ? "and" : "or") << ") ->" << std::endl;
+    std::cerr <<
+      "bin(" << (type == QueryClauseAnd ? "and" : "or") << ")" <<
+      "(" << entity_count() << ") ->" << std::endl;
+
     l->debug_print(indent + 1);
     r->debug_print(indent + 1);
   }
@@ -124,8 +128,34 @@ struct QueryClauseLit : public QueryClause {
 
   virtual void debug_print(int indent = 0) const {
     print_indent(indent);
-    std::cerr << "lit -> " << t->value << " (" << t->entity_count() <<")"<< std::endl;
+    std::cerr << "lit(" << t->entity_count() << ") -> " << t->value << std::endl;
   }
+};
+
+struct QueryClauseMetaNode : public QueryClause {
+  SCCMetaNode* node;
+
+  QueryClauseMetaNode(SCCMetaNode *node_) : node(node_) {}
+  virtual ~QueryClauseMetaNode() { node = nullptr; }
+
+
+  virtual bool matches_set(const std::unordered_set<Tag*>& tags) const {
+    // do any of the tags belong to this metanode
+    for(auto t : tags) {
+      if(t->meta_node == node) return true;
+    }
+
+    return false;
+  }
+
+  virtual int depth()        const { return 0; }
+  virtual int num_children() const { return 0; }
+  virtual int entity_count() const;
+  virtual QueryClauseMetaNode *dup() const {
+    return new QueryClauseMetaNode(node);
+  }
+
+  virtual void debug_print(int indent = 0) const;
 };
 
 // represents an empty clause (matches everything)
@@ -140,11 +170,11 @@ struct QueryClauseAny : public QueryClause {
 
   virtual int depth()        const { return 0; }
   virtual int num_children() const { return 0; }
-  virtual int entity_count() const { return 0; }
+  virtual int entity_count() const { return 999999999; }
 
   virtual void debug_print(int indent = 0) const {
     print_indent(indent);
-    std::cerr << "any" << std::endl;
+    std::cerr << "any(999999999)" << std::endl;
   }
 
   virtual QueryClauseAny* dup() const {
