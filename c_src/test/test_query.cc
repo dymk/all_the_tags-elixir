@@ -33,6 +33,8 @@ TEST_F(QueryTest, QueryOrOptims1) {
   if(debug) qc->debug_print();
   ASSERT_EQ(((QueryClauseLit*)qc->l)->t, b);
   ASSERT_EQ(((QueryClauseLit*)qc->r)->t, a);
+
+  delete qc;
 }
 
 TEST_F(QueryTest, QueryOrOptims2) {
@@ -44,6 +46,8 @@ TEST_F(QueryTest, QueryOrOptims2) {
   ASSERT_TRUE(qc);
   ASSERT_EQ(((QueryClauseLit*)qc->l)->t, b);
   ASSERT_EQ(((QueryClauseLit*)qc->r)->t, a);
+
+  delete qc;
 }
 
 TEST_F(QueryTest, QueryAndOptims1) {
@@ -55,6 +59,8 @@ TEST_F(QueryTest, QueryAndOptims1) {
   ASSERT_TRUE(qc);
   ASSERT_EQ(((QueryClauseLit*)qc->l)->t, b);
   ASSERT_EQ(((QueryClauseLit*)qc->r)->t, a);
+
+  delete qc;
 }
 
 TEST_F(QueryTest, QueryAndOptims2) {
@@ -66,6 +72,8 @@ TEST_F(QueryTest, QueryAndOptims2) {
   ASSERT_TRUE(qc);
   ASSERT_EQ(((QueryClauseLit*)qc->l)->t, b);
   ASSERT_EQ(((QueryClauseLit*)qc->r)->t, a);
+
+  delete qc;
 }
 
 TEST_F(QueryTest, NestedOrs) {
