@@ -31,3 +31,47 @@ TEST_F(EntityAndTagTest, TagEntity) {
   ASSERT_FALSE(e1->remove_tag(foo));
   ASSERT_EQ(e1->tags, SET(Tag*, {}));
 }
+
+TEST_F(EntityAndTagTest, MatchesQuery) {
+  e1->add_tag(foo);
+  e2->add_tag(bar);
+
+  auto *q_foo = build_lit(foo);
+  auto *q_bar = build_lit(bar);
+
+  auto ret = query(c, *q_foo);
+  ASSERT_EQ(ret, SET(Entity*, {e1}));
+
+  QueryClauseOr q_or(q_foo, q_bar);
+  ret = query(c, q_or);
+  ASSERT_EQ(ret, SET(Entity*, {e1, e2}));
+}
+
+TEST_F(EntityAndTagTest, ParentMatches) {
+  // foo's parent is bar, so either
+  // "foo" or "bar" should match e1
+  e1->add_tag(foo);
+  foo->set_parent(bar);
+
+  auto q_foo = build_lit(foo);
+  auto q_bar = build_lit(bar);
+
+  auto ret = query(c, *q_foo);
+  ASSERT_EQ(SET(Entity*, {e1}), ret);
+
+  ret = query(c, *q_bar);
+  ASSERT_EQ(SET(Entity*, {e1}), ret);
+
+  delete q_foo;
+  delete q_bar;
+}
+
+TEST_F(EntityAndTagTest, NumEntities) {
+  // foo's parent is bar, so either
+  // "foo" or "bar" should match e1
+  foo->set_parent(bar);
+  e1->add_tag(foo);
+
+  ASSERT_EQ(1, foo->entity_count());
+  ASSERT_EQ(0, bar->entity_count());
+}

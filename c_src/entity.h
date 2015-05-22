@@ -17,10 +17,12 @@ struct Entity {
   //  - true: tag was added
   //  - false: tag arleady on this entity
   bool add_tag(Tag* t) {
+    t->inc_entity_count();
     return tags.insert(t).second;
   }
 
   bool remove_tag(Tag* t) {
+    t->dec_entity_count();
     return tags.erase(t) == 1;
   }
 };

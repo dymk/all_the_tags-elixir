@@ -18,8 +18,12 @@ struct Tag {
   std::unordered_set<Tag*> implies;
   std::unordered_set<Tag*> implied_by;
 
+private:
+  int _entity_count;
+
+public:
   Tag(id_type _id, const std::string& _value) :
-    id(_id), value(_value), parent(nullptr) {}
+    id(_id), value(_value), parent(nullptr), _entity_count(0) {}
 
   bool set_parent(Tag *parent) {
     if(!parent) return false;
@@ -55,6 +59,17 @@ struct Tag {
   bool unimply(Tag *other) {
     other->implied_by.erase(this);
     return implies.erase(other) == 1;
+  }
+
+  int entity_count() const {
+    return _entity_count;
+  }
+
+  int inc_entity_count() {
+    _entity_count++;
+  }
+  void dec_entity_count() {
+    _entity_count--;
   }
 };
 

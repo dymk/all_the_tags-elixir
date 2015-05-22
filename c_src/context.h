@@ -41,7 +41,7 @@ public:
 
   // calls 'match' with all entities that match the QueryClause
   template<class UnaryFunction>
-  void query(const QueryClause *q, UnaryFunction match) {
+  void query(const QueryClause *q, UnaryFunction match) const {
 
     auto iter = id_to_entity.begin();
     auto end = id_to_entity.end();
