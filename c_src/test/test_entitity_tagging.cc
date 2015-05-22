@@ -42,7 +42,7 @@ TEST_F(EntityAndTagTest, MatchesQuery) {
   auto ret = query(c, *q_foo);
   ASSERT_EQ(ret, SET(Entity*, {e1}));
 
-  QueryClauseOr q_or(q_foo, q_bar);
+  QueryClauseBin q_or(QueryClauseOr, q_foo, q_bar);
   ret = query(c, q_or);
   ASSERT_EQ(ret, SET(Entity*, {e1, e2}));
 }
@@ -73,5 +73,13 @@ TEST_F(EntityAndTagTest, NumEntities) {
   e1->add_tag(foo);
 
   ASSERT_EQ(1, foo->entity_count());
+  ASSERT_EQ(0, bar->entity_count());
+
+  ASSERT_FALSE(e1->remove_tag(bar));
+  ASSERT_EQ(1, foo->entity_count());
+  ASSERT_EQ(0, bar->entity_count());
+
+  ASSERT_TRUE(e1->remove_tag(foo));
+  ASSERT_EQ(0, foo->entity_count());
   ASSERT_EQ(0, bar->entity_count());
 }

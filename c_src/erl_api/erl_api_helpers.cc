@@ -17,7 +17,7 @@ QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context
     auto tag = c->tag_by_value(stag_val);
     if(!tag) return nullptr;
 
-    return new QueryClauseLit(tag);
+    return build_lit(tag);
   }
   else if(enif_is_tuple(env, term)) {
     // tuple in the form of {:and, a, b}
@@ -39,7 +39,7 @@ QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context
       auto e = build_clause(env, elems[1], c);
       if(!e) return nullptr;
 
-      return new QueryClauseNot(e);
+      return build_not(e);
     }
     else if(arity == 3) {
       // arity of 3 - "and" or "or"
@@ -56,12 +56,7 @@ QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context
       auto r = build_clause(env, elems[2], c);
       if(!r) return nullptr;
 
-      if(matches_and) {
-        return new QueryClauseAnd(l, r);
-      }
-      else {
-        return new QueryClauseOr(l, r);
-      }
+      return matches_and ? build_and(l, r) : build_or(l, r);
     }
     else {
       // incorrect arity (must be 2 or 3) - no matches

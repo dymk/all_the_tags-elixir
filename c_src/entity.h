@@ -3,6 +3,7 @@
 
 #include <unordered_set>
 #include "id.h"
+#include "tag.h"
 
 // represents an entity that can be tagged
 // is represented by a unique ID
@@ -17,13 +18,15 @@ struct Entity {
   //  - true: tag was added
   //  - false: tag arleady on this entity
   bool add_tag(Tag* t) {
-    t->inc_entity_count();
-    return tags.insert(t).second;
+    auto success = tags.insert(t).second;
+    if(success) t->inc_entity_count();
+    return success;
   }
 
   bool remove_tag(Tag* t) {
-    t->dec_entity_count();
-    return tags.erase(t) == 1;
+    auto success = tags.erase(t) == 1;
+    if(success) t->dec_entity_count();
+    return success;
   }
 };
 

@@ -7,6 +7,9 @@
 
 #include "id.h"
 
+// needs forward declaration because C++ uses goddamn textual inclusion
+struct Context;
+
 struct Tag {
   id_type id;
   std::string value;
@@ -18,36 +21,45 @@ struct Tag {
   std::unordered_set<Tag*> implies;
   std::unordered_set<Tag*> implied_by;
 
-private:
+  Context *context;
+  // pre/post count of the tag in its parent/child tree
+  int pre, post;
+
+  // how many entities have this particular tag
   int _entity_count;
 
 public:
-  Tag(id_type _id, const std::string& _value) :
-    id(_id), value(_value), parent(nullptr), _entity_count(0) {}
+  Tag(Context *context_, id_type _id, const std::string& _value) :
+    id(_id), value(_value),
+    parent(nullptr),
+    context(context_),
+    pre(-1),
+    post(-1),
+    _entity_count(0) {}
 
-  bool set_parent(Tag *parent) {
-    if(!parent) return false;
-
-    // check for cycles
-    auto p = parent;
-    while(p->parent) {
-      if(p->parent == this) return false;
-      p = p->parent;
-    }
-
-    // remove ourselves from current parent's children list (if we have one)
-    unset_parent();
-    this->parent = parent;
-    parent->children.insert(this);
-
-    return true;
-  }
+  bool set_parent(Tag *parent);
 
   bool unset_parent() {
     if(parent == nullptr) return false;
     this->parent->children.erase(this);
     this->parent = nullptr;
+    pre = post = -1;
     return true;
+  }
+
+  bool is_or_descendent_of(const Tag* tag) const {
+    if(pre == -1 || post == -1) {
+      assert(pre == -1 && post == -1);
+      return this == tag;
+    }
+    return pre >= tag->pre && tag->post >= post;
+  }
+  bool is_or_ancestor_of(const Tag* tag) const {
+    if(pre == -1 || post == -1) {
+      assert(pre == -1 && post == -1);
+      return this == tag;
+    }
+    return pre <= tag->pre && tag->post <= post;
   }
 
   // this tag implies -> other tag
@@ -55,7 +67,6 @@ public:
     other->implied_by.insert(this);
     return implies.insert(other).second;
   }
-
   bool unimply(Tag *other) {
     other->implied_by.erase(this);
     return implies.erase(other) == 1;
@@ -65,7 +76,7 @@ public:
     return _entity_count;
   }
 
-  int inc_entity_count() {
+  void inc_entity_count() {
     _entity_count++;
   }
   void dec_entity_count() {

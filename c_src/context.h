@@ -8,9 +8,10 @@
 #include <algorithm>
 #include <utility>
 
-#include "tag.h"
 #include "entity.h"
 #include "query.h"
+
+struct Tag;
 
 struct Context {
 private:
@@ -23,7 +24,13 @@ private:
   std::unordered_map<id_type,  Entity*> id_to_entity;
 
 public:
-  Context() : last_tag_id(0), last_entity_id(0) {}
+  std::unordered_set<Tag*> root_tags;
+
+  Context() :
+    last_tag_id(0),
+    last_entity_id(0)
+    // tag_graph_dirty(false)
+    {}
   ~Context();
 
   // returns a new tag with value 'val'
@@ -35,6 +42,10 @@ public:
   // look up tag by value or id
   Tag* tag_by_value(const std::string& val) const;
   Tag* tag_by_id(id_type tid) const;
+
+  // marks the tag graph as dirty, and to recalc it before
+  // any other queries
+  void dirty_tag_graph(Tag* dirtying_tag);
 
   // look up entity by id
   Entity* entity_by_id(id_type eid) const;

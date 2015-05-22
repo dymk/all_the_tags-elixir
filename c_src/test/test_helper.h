@@ -1,6 +1,7 @@
 #ifndef __TEST_HELPER_H__
 #define __TEST_HELPER_H__
 
+#include "gtest/gtest.h"
 #include "context.h"
 #include "query.h"
 
