@@ -10,14 +10,9 @@ int QueryClauseMetaNode::entity_count() const {
 }
 void QueryClauseMetaNode::debug_print(int indent) const {
   print_indent(indent);
-  std::cerr << "meta(" << entity_count() << ") -> (";
-  bool first = true;
-  for(auto tag : node->tags) {
-    if(!first) std::cerr << ", ";
-    first = false;
-    std::cerr << tag->value;
-  }
-  std::cerr << ")" << std::endl;
+  std::cerr << "meta(" << entity_count() << ") : ";
+  node->print_tag_set(std::cerr);
+  std::cerr << std::endl;
 }
 
 QueryClause *build_lit(Tag *tag) {
@@ -33,6 +28,7 @@ QueryClause *build_lit(Tag *tag) {
     std::unordered_set<SCCMetaNode*> meta_nodes;
 
     std::function<void(SCCMetaNode*)> recurse = [&](SCCMetaNode *node) {
+      assert(node);
       meta_nodes.insert(node);
       for(auto parent : node->parents) {
         recurse(parent);

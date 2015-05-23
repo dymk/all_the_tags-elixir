@@ -1,3 +1,5 @@
+#include <queue>
+
 #include "context.h"
 #include "tag.h"
 
@@ -80,22 +82,104 @@ void Context::dirty_tag_imply_dag(Tag* tag, bool gained_imply, Tag* target) {
         meta_nodes.insert(target_mn);
       }
 
-      assert(tag->meta_node->add_child(target->meta_node));
-      sink_meta_nodes.erase(tag_mn);
-      sink_meta_nodes.insert(target_mn);
+      assert(tag_mn->add_child(target_mn));
+      // sink_meta_nodes.erase(tag_mn);
+      // sink_meta_nodes.insert(target_mn);
     }
     else {
       // both tag and target already have a metanode
       // check if target has a path to tag
-      // if it does, collapse the whole thing into a
-      // single metanode
+      // if it does, collapse the two into a single metanode
       assert(target_mn && tag_mn);
-      if(path_between(target_mn, tag_mn)) {
-        assert(false && "TODO: implement if there *is* a path between the two");
+
+      // all of the SCCs that would be in the cycle to tag_mn
+      // (and thus need to be collapsed into a single metanode)
+      std::unordered_set<SCCMetaNode*> in_scc;
+      std::function<void(SCCMetaNode*)> recurse = [&](SCCMetaNode* node) {
+        assert(node);
+
+        if(path_between(node, tag_mn)) {
+          in_scc.insert(node);
+          for(auto child : node->children) {
+            recurse(child);
+          }
+        }
+      };
+      recurse(target_mn);
+
+
+      if(in_scc.size()) {
+        auto tmp_in_scc = in_scc;
+
+        // incoming/outgoing edges that aren't in the SCC set being collapsed
+        std::unordered_set<SCCMetaNode*> inedges;
+        std::unordered_set<SCCMetaNode*> outedges;
+
+        std::cerr << "collapsing " << in_scc.size() << " nodes into one" << std::endl;
+
+        while(tmp_in_scc.size()) {
+          auto from = *(tmp_in_scc.begin());
+          tmp_in_scc.erase(from);
+
+          std::cerr << "collapsing node with tags ";
+          from->print_tag_set(std::cerr);
+          std::cerr << std::endl;
+
+          for(auto scc : from->parents) {
+            if(in_scc.find(scc) == in_scc.end()) {
+              // not in the collapse set - add to inedges list
+              inedges.insert(scc);
+            }
+          }
+          for(auto scc : from->children) {
+            if(in_scc.find(scc) == in_scc.end()) {
+              // not in the collapse set - add to inedges list
+              outedges.insert(scc);
+            }
+          }
+        }
+
+        std::cerr << "inedges: " << inedges.size() << std::endl;
+        std::cerr << "outedges: " << outedges.size() << std::endl;
+
+        auto new_scc_node = new SCCMetaNode();
+
+        // transfer all tags into 'new_scc_node'
+        for(auto scc : in_scc) {
+          for(auto t : scc->tags) {
+            std::cerr << "transfering tag " << t->value << std::endl;
+            t->meta_node = new_scc_node;
+            assert(new_scc_node->tags.insert(t).second == true);
+          }
+          scc->tags.clear();
+        }
+
+        // remove all the other nodes from the graph
+        for(auto scc : in_scc) {
+          scc->remove_from_graph();
+          // sink_meta_nodes.erase(scc);
+          meta_nodes.erase(scc);
+          delete scc;
+        }
+
+        // set up edges to the SCC nodes that had incoming edges from one of
+        // the collapsed nodes
+        for(auto scc : outedges) {
+          new_scc_node->add_child(scc);
+        }
+        for(auto scc : inedges) {
+          scc->add_child(new_scc_node);
+        }
+
+        // insert new metanode into graph
+        meta_nodes.insert(new_scc_node);
+        // if(new_scc_node->children.size() == 0) {
+        //   sink_meta_nodes.insert(new_scc_node);
+        // }
       }
       else {
         // no path between the two, won't create a cycle
-        // can safely add link between the two
+        // can safely add link directly between the two
         tag_mn->add_child(target_mn);
       }
     }
