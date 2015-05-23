@@ -95,17 +95,72 @@ TEST_F(TagImplicationTest, ABC_SCC) {
   }
 }
 
-
 TEST_F(TagImplicationTest, DiamondTest) {
+  ASSERT_EQ(0, ctx.sink_meta_nodes.size());
+
   a->imply(b);
+  ASSERT_EQ(1, ctx.sink_meta_nodes.size());
+
   a->imply(c);
+  ASSERT_EQ(2, ctx.sink_meta_nodes.size());
+
   b->imply(d);
+  ASSERT_EQ(2, ctx.sink_meta_nodes.size());
+
   c->imply(d);
 
+  //      a
+  //     / \
+  //    b   c
+  //     \ /
+  //      d
+
   // a, b, c, d all are separate metanodes
+  for(auto node : ctx.sink_meta_nodes) {
+    node->print_tag_set(std::cerr); std::cerr << std::endl;
+  }
+
   ASSERT_EQ(4, ctx.meta_nodes.size());
+  ASSERT_EQ(1, ctx.sink_meta_nodes.size());
 
   // d -> a creates a cycle, collapse all
   d->imply(a);
   ASSERT_EQ(1, ctx.meta_nodes.size());
+  ASSERT_EQ(1, ctx.sink_meta_nodes.size());
+}
+
+TEST_F(TagImplicationTest, TwoDiamondTest) {
+  a->imply(b);
+  a->imply(c);
+  b->imply(d);
+  c->imply(d);
+  b->imply(e);
+
+  //      a
+  //     / \
+  //    b   c
+  //   / \ /
+  //  e   d
+
+  // a, b, c, d, e all are separate metanodes
+  ASSERT_EQ(5, ctx.meta_nodes.size());
+  ASSERT_EQ(2, ctx.sink_meta_nodes.size());
+
+  // d -> a should collapse {a, b, c, d} into single node
+  d->imply(a);
+
+  // {a,b,c,d}
+  //     |
+  //     e
+
+  ASSERT_EQ(2, ctx.meta_nodes.size());
+  ASSERT_EQ(1, ctx.sink_meta_nodes.size());
+
+  auto sink = *(ctx.sink_meta_nodes.begin());
+  ASSERT_EQ(sink->tags, SET(Tag*, {e}));
+  ASSERT_EQ(e->meta_node, sink);
+
+  for(auto node : {a, b, c, d}) {
+    ASSERT_EQ(node->meta_node->tags, SET(Tag*, {a, b, c, d}));
+  }
 }

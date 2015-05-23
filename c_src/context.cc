@@ -5,6 +5,8 @@
 
 struct Tag;
 
+static bool debug = true;
+
 int SCCMetaNode::entity_count() const {
   int sum = 0;
   for(auto t : tags) { sum += t->entity_count(); }
@@ -83,8 +85,14 @@ void Context::dirty_tag_imply_dag(Tag* tag, bool gained_imply, Tag* target) {
       }
 
       assert(tag_mn->add_child(target_mn));
-      // sink_meta_nodes.erase(tag_mn);
-      // sink_meta_nodes.insert(target_mn);
+      sink_meta_nodes.erase(tag_mn);
+
+      if(target_mn->children.size() == 0) {
+        sink_meta_nodes.insert(target_mn);
+      }
+      else {
+        sink_meta_nodes.erase(target_mn);
+      }
     }
     else {
       // both tag and target already have a metanode
@@ -115,15 +123,19 @@ void Context::dirty_tag_imply_dag(Tag* tag, bool gained_imply, Tag* target) {
         std::unordered_set<SCCMetaNode*> inedges;
         std::unordered_set<SCCMetaNode*> outedges;
 
-        std::cerr << "collapsing " << in_scc.size() << " nodes into one" << std::endl;
+        if(debug) {
+          std::cerr << "collapsing " << in_scc.size() << " nodes into one" << std::endl;
+        }
 
         while(tmp_in_scc.size()) {
           auto from = *(tmp_in_scc.begin());
           tmp_in_scc.erase(from);
 
-          std::cerr << "collapsing node with tags ";
-          from->print_tag_set(std::cerr);
-          std::cerr << std::endl;
+          if(debug) {
+            std::cerr << "collapsing node with tags ";
+            from->print_tag_set(std::cerr);
+            std::cerr << std::endl;
+          }
 
           for(auto scc : from->parents) {
             if(in_scc.find(scc) == in_scc.end()) {
@@ -139,25 +151,34 @@ void Context::dirty_tag_imply_dag(Tag* tag, bool gained_imply, Tag* target) {
           }
         }
 
-        std::cerr << "inedges: " << inedges.size() << std::endl;
-        std::cerr << "outedges: " << outedges.size() << std::endl;
+        if(debug) {
+          std::cerr << "inedges: " << inedges.size() << std::endl;
+          std::cerr << "outedges: " << outedges.size() << std::endl;
+        }
 
         auto new_scc_node = new SCCMetaNode();
 
         // transfer all tags into 'new_scc_node'
         for(auto scc : in_scc) {
           for(auto t : scc->tags) {
-            std::cerr << "transfering tag " << t->value << std::endl;
+            if(debug) {
+              std::cerr << "transfering tag " << t->value << std::endl;
+            }
             t->meta_node = new_scc_node;
             assert(new_scc_node->tags.insert(t).second == true);
           }
-          scc->tags.clear();
         }
 
         // remove all the other nodes from the graph
         for(auto scc : in_scc) {
+          if(debug) {
+            std::cerr << "removing from graph: ";
+            scc->print_tag_set(std::cerr);
+            std::cerr << std::endl;
+          }
+          scc->tags.clear();
           scc->remove_from_graph();
-          // sink_meta_nodes.erase(scc);
+          sink_meta_nodes.erase(scc);
           meta_nodes.erase(scc);
           delete scc;
         }
@@ -173,14 +194,18 @@ void Context::dirty_tag_imply_dag(Tag* tag, bool gained_imply, Tag* target) {
 
         // insert new metanode into graph
         meta_nodes.insert(new_scc_node);
-        // if(new_scc_node->children.size() == 0) {
-        //   sink_meta_nodes.insert(new_scc_node);
-        // }
+        if(new_scc_node->children.size() == 0) {
+          sink_meta_nodes.insert(new_scc_node);
+        }
       }
       else {
         // no path between the two, won't create a cycle
         // can safely add link directly between the two
+        if(debug) {
+          std::cerr << "can add edge directly between tags without collapsing nodes" << std::endl;
+        }
         tag_mn->add_child(target_mn);
+        sink_meta_nodes.erase(tag_mn);
       }
     }
   }

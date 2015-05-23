@@ -25,18 +25,20 @@ bool Tag::set_parent(Tag *parent) {
 }
 
 bool Tag::imply(Tag *other) {
-  other->implied_by.insert(this);
-  auto ret = implies.insert(other).second;
+  auto a = other->implied_by.insert(this).second;
+  auto b = implies.insert(other).second;
+  assert(a == b);
 
-  if(ret) context->dirty_tag_imply_dag(this, true, other);
+  if(a) context->dirty_tag_imply_dag(this, true, other);
 
-  return ret;
+  return a;
 }
 bool Tag::unimply(Tag *other) {
-  other->implied_by.erase(this);
-  auto ret = implies.erase(other) == 1;
+  auto a = other->implied_by.erase(this) == 1;
+  auto b = implies.erase(other) == 1;
+  assert(a == b);
 
-  if(ret) context->dirty_tag_imply_dag(this, false, other);
+  if(a) context->dirty_tag_imply_dag(this, false, other);
 
-  return ret;
+  return a;
 }

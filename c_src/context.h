@@ -89,7 +89,7 @@ private:
 public:
   // meta nodes representing the DAG of tag implications
   std::unordered_set<SCCMetaNode*> meta_nodes;
-  // std::unordered_set<SCCMetaNode*> sink_meta_nodes;
+  std::unordered_set<SCCMetaNode*> sink_meta_nodes;
 
   std::unordered_set<Tag*> root_tags;
 
