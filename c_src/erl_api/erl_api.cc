@@ -319,6 +319,45 @@ ERL_FUNC(get_implies) {
 
   return enif_make_tuple2(env, A_OK(env), res_list);
 }
+ERL_FUNC(get_implied_by) {
+  ENSURE_ARG(argc == 2);
+  ENSURE_CONTEXT(env, argv[0]);
+
+  Tag *tag = get_tag_from_arg(context, env, argv[1]);
+  if(!tag) return A_ERR(env);
+
+  ERL_NIF_TERM res_list = enif_make_list(env, 0); // start with empty list
+
+  for(auto i : tag->implied_by) {
+    res_list = enif_make_list_cell(env, binary_from_string(i->value, env), res_list);
+  }
+
+  return enif_make_tuple2(env, A_OK(env), res_list);
+}
+
+#if 0
+ERL_FUNC(is_dirty) {
+  ENSURE_ARG(argc == 1);
+  ENSURE_CONTEXT(env, argv[0]);
+
+  return context.is_dirty() ? enif_make_atom(env, "true") : enif_make_atom(env, "false");
+}
+ERL_FUNC(mark_dirty) {
+  ENSURE_ARG(argc == 1);
+  ENSURE_CONTEXT(env, argv[0]);
+
+  context.mark_dirty();
+  return A_OK(env);
+}
+ERL_FUNC(make_clean) {
+  ENSURE_ARG(argc == 1);
+  ENSURE_CONTEXT(env, argv[0]);
+
+  context.make_clean();
+
+  return A_OK(env);
+}
+#endif
 
 static ErlNifFunc nif_funcs[] = {
   {"init_lib",         0, init_lib,         0}, // private
@@ -334,7 +373,11 @@ static ErlNifFunc nif_funcs[] = {
   {"get_tag_children", 2, get_tag_children, 0},
   {"imply_tag",        3, imply_tag,        0},
   {"unimply_tag",      3, unimply_tag,      0},
-  {"get_implies",      2, get_implies,      0}
+  {"get_implies",      2, get_implies,      0},
+  {"get_implied_by",   2, get_implied_by,   0}
+  // {"is_dirty",         1, is_dirty,         0},
+  // {"mark_dirty",       1, mark_dirty,       0},
+  // {"make_clean",       1, make_clean,       0}
 };
 
 ERL_NIF_INIT(Elixir.AllTheTags, nif_funcs, NULL, NULL, NULL, NULL)

@@ -47,6 +47,7 @@ defmodule AllTheTags do
   def imply_tag(_handle, _implier, _implied),   do: not_loaded
   def unimply_tag(_handle, _implier, _implied), do: not_loaded
   def get_implies(_handle, _tag), do: not_loaded
+  def get_implied_by(_handle, _tag), do: not_loaded
 
   defp init_lib() do
     not_loaded

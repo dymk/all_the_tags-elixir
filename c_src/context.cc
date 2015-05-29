@@ -6,7 +6,7 @@
 
 struct Tag;
 
-static bool debug = true;
+static bool debug = false;
 
 int SCCMetaNode::entity_count() const {
   int sum = 0;

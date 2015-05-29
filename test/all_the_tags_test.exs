@@ -161,6 +161,18 @@ defmodule AllTheTagsTest do
     assert AllTheTags.get_implies(handle, "foo") == {:ok, ["bar", "baz"]}
   end
 
+  test "get_implied_by works", %{handle: handle} do
+    handle |> AllTheTags.new_tag("foo")
+    handle |> AllTheTags.new_tag("bar")
+    handle |> AllTheTags.new_tag("baz")
+
+    assert AllTheTags.get_implied_by(handle, "bar") == {:ok, []}
+    AllTheTags.imply_tag(handle, "foo", "bar")
+    assert AllTheTags.get_implied_by(handle, "bar") == {:ok, ["foo"]}
+    AllTheTags.imply_tag(handle, "baz", "bar")
+    assert AllTheTags.get_implied_by(handle, "bar") == {:ok, ["foo", "baz"]}
+  end
+
   defp set_up_e(handle) do
     handle |> AllTheTags.new_tag("foo")
     handle |> AllTheTags.new_tag("bar")

@@ -92,10 +92,10 @@ TEST_F(QueryTest, NestedOrs) {
   query = OPTIM_AND_CAST(query);
   if(debug) query->debug_print();
 
-  // auto left_tag    = (dynamic_cast<QueryClauseLit*>(query->l));
-  // auto right_query = (dynamic_cast<QueryClauseBin*>(query->r));
-  // ASSERT_TRUE(left_tag);
-  // ASSERT_TRUE(right_query);
+  auto left_tag    = (dynamic_cast<QueryClauseBin*>(query->l));
+  auto right_query = (dynamic_cast<QueryClauseLit*>(query->r));
+  ASSERT_TRUE(left_tag);
+  ASSERT_TRUE(right_query);
   delete query;
 }
 
@@ -115,9 +115,36 @@ TEST_F(QueryTest, NestedAnds) {
   query = OPTIM_AND_CAST(query);
   if(debug) query->debug_print();
 
-  // auto left_tag    = (dynamic_cast<QueryClauseLit*>(query->l));
-  // auto right_query = (dynamic_cast<QueryClauseBin*>(query->r));
-  // ASSERT_TRUE(left_tag);
-  // ASSERT_TRUE(right_query);
+  auto left_tag    = (dynamic_cast<QueryClauseBin*>(query->l));
+  auto right_query = (dynamic_cast<QueryClauseLit*>(query->r));
+  ASSERT_TRUE(left_tag);
+  ASSERT_TRUE(right_query);
+  delete query;
+}
+
+TEST_F(QueryTest, Implication1) {
+  for(int i = 0; i <  5; i++) { ctx.new_entity()->add_tag(a); }
+  for(int i = 0; i < 10; i++) { ctx.new_entity()->add_tag(b); }
+  for(int i = 0; i < 20; i++) { ctx.new_entity()->add_tag(c); }
+
+  a->imply(b);
+  b->imply(a);
+
+  c->imply(d);
+  d->imply(c);
+
+  a->imply(c);
+
+  auto query =
+    build_and(
+      build_lit(b),
+      build_and(
+        build_lit(a),
+        build_lit(c)));
+
+  if(debug) query->debug_print();
+  query = OPTIM_AND_CAST(query);
+  if(debug) query->debug_print();
+
   delete query;
 }
