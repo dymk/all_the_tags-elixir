@@ -129,26 +129,6 @@ defmodule AllTheTagsTest do
     assert :error     == AllTheTags.do_query(handle, "blah")
   end
 
-  test "tag parenting", %{handle: handle} do
-    handle |> set_up_e
-    assert :ok == AllTheTags.make_tag_parent(handle, "foo", "bar")
-  end
-
-  test "can't create circular tag parents", %{handle: handle} do
-    handle |> set_up_e
-    assert :ok    == AllTheTags.make_tag_parent(handle, "foo", "bar")
-    assert :error == AllTheTags.make_tag_parent(handle, "bar", "foo")
-  end
-
-  test "parented tag is implied on the child", %{handle: handle} do
-    e = handle |> set_up_e
-    handle |> AllTheTags.make_tag_parent("foo", "bar")
-    handle |> AllTheTags.add_tag(e, "bar")
-
-    {:ok, res} = handle |> AllTheTags.entity_tags(e)
-    assert same_lists([{:direct, "bar"}, {:parent, "foo", "bar"}], res)
-  end
-
   test "get_implies works", %{handle: handle} do
     handle |> AllTheTags.new_tag("foo")
     handle |> AllTheTags.new_tag("bar")

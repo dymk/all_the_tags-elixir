@@ -26,28 +26,6 @@ Context::~Context() {
   }
 }
 
-void Context::dirty_tag_parent_tree(Tag* dirtying_tag) {
-  if(dirtying_tag->parent) {
-    root_tags.erase(dirtying_tag);
-  }
-  else {
-    root_tags.insert(dirtying_tag);
-  }
-
-  int counter = 0;
-  std::function<void(Tag*)> recurse = [&](Tag *t) {
-    t->pre = counter++;
-    for(auto child : t->children) {
-      recurse(child);
-    }
-    t->post = counter++;
-  };
-
-  for(Tag* t : root_tags) {
-    recurse(t);
-  }
-}
-
 bool path_between(SCCMetaNode *from, SCCMetaNode *to) {
   // do a DFS between 'from' and 'to'
 
@@ -464,8 +442,6 @@ Tag* Context::new_tag(const std::string& val) {
 
   auto t = new Tag(this, last_tag_id++, val);
 
-  // tags.push_back(t); // record in master tags list
-  root_tags.insert(t);
   value_to_tag.insert(std::make_pair(tmp, t)); // all values
   id_to_tag.insert(std::make_pair(t->id, t));
 

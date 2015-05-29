@@ -16,15 +16,13 @@ void QueryClauseMetaNode::debug_print(int indent) const {
 }
 
 QueryClause *build_lit(Tag *tag) {
-  QueryClause *clause = new QueryClauseLit(tag);
-  for(auto child : tag->children) {
-    // add parent chain to "or" tree (any of the parents match lit)
-    clause = build_or(clause, build_lit(child));
-  }
+  QueryClause *clause = nullptr;
 
-  // TODO: if a parent has a ton of children, might be better
-  // to do more expensive range-based check?
   if(tag->meta_node) {
+    // if tag has a metanode, query against it rather than
+    // the literal tag
+
+    // collect all metanodes that imply this metanode
     std::unordered_set<SCCMetaNode*> meta_nodes;
 
     std::function<void(SCCMetaNode*)> recurse = [&](SCCMetaNode *node) {
@@ -39,8 +37,14 @@ QueryClause *build_lit(Tag *tag) {
     recurse(tag->meta_node);
 
     for(auto node : meta_nodes) {
-      clause = build_or(clause, new QueryClauseMetaNode(node));
+      auto built = new QueryClauseMetaNode(node);
+      if(!clause) { clause = built; }
+      else        { clause = build_or(clause, built); }
     }
+  }
+  else {
+    // if literal tag is only one on it, query against it
+    clause = new QueryClauseLit(tag);
   }
 
   return clause;
@@ -136,8 +140,29 @@ QueryClause* hc_tree_optimize(QueryClauseBin* clause) {
     recycle_bin.push(top);
   }
 
+  // remove duplicate metanodes within the leafs
+  {
+    std::unordered_set<SCCMetaNode*> meta_leafs;
+    for(auto&& leaf : unsorted_leafs) {
+      auto ml = dynamic_cast<QueryClauseMetaNode*>(leaf);
+      if(!ml) continue;
+
+      // is a metanode, include only a unique set
+      if(meta_leafs.find(ml->node) != meta_leafs.end()) {
+        // metanode is already in this "or", remove it
+        delete leaf;
+        leaf = nullptr;
+      }
+      else {
+        meta_leafs.insert(ml->node);
+      }
+    }
+  }
+
   // recursivly optimize all the leafs (which reside in unsorted_leafs)
   for(auto&& leaf : unsorted_leafs) {
+    if(!leaf) continue;
+
     auto old_count = leaf->entity_count();
     leaf = optimize(leaf);
     assert(old_count == leaf->entity_count());
@@ -145,6 +170,8 @@ QueryClause* hc_tree_optimize(QueryClauseBin* clause) {
 
   // insert all the leafs into the priority queue
   for(auto leaf : unsorted_leafs) {
+    if(!leaf) continue;
+
     queued_leafs.push(leaf);
   }
 

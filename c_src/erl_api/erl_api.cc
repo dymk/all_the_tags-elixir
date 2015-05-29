@@ -159,13 +159,6 @@ ERL_FUNC(entity_tags) {
     std::unordered_set<Tag*> tmp_all_set = all_set;
 
     for(Tag *tag : all_set) {
-      auto p = tag;
-      while(p->parent) {
-        tmp_all_set.insert(p->parent);
-        parents.insert(std::make_pair(p->parent, p));
-        p = p->parent;
-      }
-
       // walk impliers
       for(Tag *imp : tag->implies) {
         auto i = implied.find(imp);
@@ -178,9 +171,6 @@ ERL_FUNC(entity_tags) {
         (*i).second.insert(tag);
       }
     }
-
-    // iterate over tags that are all directly on the entity
-    // walk parent tree
 
     if(tmp_all_set.size() == all_set.size()) break;
     all_set = std::move(tmp_all_set);
@@ -244,33 +234,6 @@ ERL_FUNC(do_query) {
   delete c;
 
   return enif_make_tuple2(env, A_OK(env), res_list);
-}
-
-
-ERL_FUNC(make_tag_parent) {
-  ENSURE_ARG(argc == 3);
-  ENSURE_CONTEXT(env, argv[0]);
-
-  auto parent = get_tag_from_arg(context, env, argv[1]);
-  if(!parent) return A_ERR(env);
-
-  auto child = get_tag_from_arg(context, env, argv[2]);
-  if(!child) return A_ERR(env);
-
-  // set parent
-  if(!child->set_parent(parent)) return A_ERR(env);
-
-  return A_OK(env);
-}
-
-ERL_FUNC(get_tag_children) {
-  ENSURE_ARG(argc == 2);
-  ENSURE_CONTEXT(env, argv[0]);
-
-  Tag *tag = get_tag_from_arg(context, env, argv[1]);
-  if(!tag) return A_ERR(env);
-
-  return A_OK(env);
 }
 
 ERL_FUNC(imply_tag) {
@@ -369,8 +332,6 @@ static ErlNifFunc nif_funcs[] = {
   {"add_tag",          3, add_tag,          0},
   {"entity_tags",      2, entity_tags,      0},
   {"do_query",         2, do_query,         0},
-  {"make_tag_parent",  3, make_tag_parent,  0},
-  {"get_tag_children", 2, get_tag_children, 0},
   {"imply_tag",        3, imply_tag,        0},
   {"unimply_tag",      3, unimply_tag,      0},
   {"get_implies",      2, get_implies,      0},

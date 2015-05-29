@@ -141,6 +141,8 @@ struct QueryClauseMetaNode : public QueryClause {
 
   virtual bool matches_set(const std::unordered_set<Tag*>& tags) const {
     // do any of the tags belong to this metanode
+    // TODO: store set of relevant meta_nodes on posts instead of
+    // tags directly
     for(auto t : tags) {
       if(t->meta_node == node) return true;
     }

@@ -36,14 +36,6 @@ defmodule AllTheTags do
     not_loaded
   end
 
-  def make_tag_parent(_handle, _parent, _child) do
-    not_loaded
-  end
-
-  def get_tag_children(_handle, _tag) do
-    not_loaded
-  end
-
   def imply_tag(_handle, _implier, _implied),   do: not_loaded
   def unimply_tag(_handle, _implier, _implied), do: not_loaded
   def get_implies(_handle, _tag), do: not_loaded

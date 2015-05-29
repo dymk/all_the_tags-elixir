@@ -21,9 +21,9 @@ public:
     qux = c.new_tag("qux");
     tags = SET(Tag*, {foo, bar, baz, qux});
 
-    // qux is parent of baz
+    // baz implies qux
     // anything tagged with baz will appear in a query for qux
-    baz->set_parent(qux);
+    baz->imply(qux);
 
     // create a few dummy entities
     for(int i = 0; i < 1000; i++) { c.new_entity(); }
@@ -117,9 +117,9 @@ public:
     tag_b2 = c.new_tag("b2");
     tag_a = c.new_tag("a");
 
-    tag_a->set_parent(tag_b1);
-    tag_b1->set_parent(tag_c);
-    tag_b2->set_parent(tag_c);
+    tag_a->imply(tag_b1);
+    tag_b1->imply(tag_c);
+    tag_b2->imply(tag_c);
     // parents -> children
     // c -> b1 -> a
     //   -> b2
@@ -130,9 +130,9 @@ public:
     // etc
 
     for(int i = 0; i < 1000; i++) { c.new_entity()->add_tag(tag_c); }
-    for(int i = 0; i < 400; i++) { c.new_entity()->add_tag(tag_b1); }
-    for(int i = 0; i < 400; i++) { c.new_entity()->add_tag(tag_b2); }
-    for(int i = 0; i < 400; i++) { c.new_entity()->add_tag(tag_a);  }
+    for(int i = 0; i < 400; i++)  { c.new_entity()->add_tag(tag_b1); }
+    for(int i = 0; i < 400; i++)  { c.new_entity()->add_tag(tag_b2); }
+    for(int i = 0; i < 400; i++)  { c.new_entity()->add_tag(tag_a);  }
 
     query_c  = build_lit(tag_c);
     query_b1 = build_lit(tag_b1);

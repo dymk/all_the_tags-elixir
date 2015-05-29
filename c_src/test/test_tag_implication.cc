@@ -116,6 +116,7 @@ TEST_F(TagImplicationTest, DiamondTest) {
 
   c->imply(d);
   ASSERT_FALSE(ctx.is_dirty());
+  ASSERT_EQ(1, ctx.sink_meta_nodes.size());
 
   //      a
   //     / \
@@ -124,9 +125,12 @@ TEST_F(TagImplicationTest, DiamondTest) {
   //      d
 
   // a, b, c, d all are separate metanodes
+  // should only print out {d}
   for(auto node : ctx.sink_meta_nodes) {
     node->print_tag_set(std::cerr); std::cerr << std::endl;
   }
+
+  ASSERT_EQ(ctx.sink_meta_nodes, SET(SCCMetaNode*, {d->meta_node}));
 
   ASSERT_EQ(4, ctx.meta_nodes.size());
   ASSERT_EQ(1, ctx.sink_meta_nodes.size());

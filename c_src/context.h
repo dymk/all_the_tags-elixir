@@ -96,8 +96,6 @@ public:
   std::unordered_set<SCCMetaNode*> meta_nodes;
   std::unordered_set<SCCMetaNode*> sink_meta_nodes;
 
-  std::unordered_set<Tag*> root_tags;
-
   Context() :
     last_tag_id(0),
     last_entity_id(0),
