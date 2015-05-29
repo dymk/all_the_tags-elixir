@@ -62,7 +62,7 @@ struct SCCMetaNode {
     assert(parents.size() == 0);
   }
 
-  void print_tag_set(std::ostream& os) {
+  std::ostream& print_tag_set(std::ostream& os) {
     os << "{";
     bool first = true;
     for(auto tag : tags) {
@@ -71,6 +71,7 @@ struct SCCMetaNode {
       os << tag->value;
     }
     os << "}";
+    return os;
   }
 
   int entity_count() const;
@@ -86,6 +87,10 @@ private:
 
   std::unordered_map<id_type,  Entity*> id_to_entity;
 
+  // does the metagraph need recalculating? call make_clean
+  // to recalculate the metagraph
+  bool recalc_metagraph;
+
 public:
   // meta nodes representing the DAG of tag implications
   std::unordered_set<SCCMetaNode*> meta_nodes;
@@ -95,8 +100,8 @@ public:
 
   Context() :
     last_tag_id(0),
-    last_entity_id(0)
-    // tag_graph_dirty(false)
+    last_entity_id(0),
+    recalc_metagraph(false)
     {}
   ~Context();
 
@@ -143,6 +148,20 @@ public:
   size_t num_entities() const {
     return id_to_entity.size();
   }
+
+  // is a call to make_clean() required?
+  bool is_dirty() const {
+    return recalc_metagraph;
+  }
+
+  // suppress incremental DAG building, let it
+  // happen all in one go with a call to make_clean
+  void mark_dirty() {
+    recalc_metagraph = true;
+  }
+
+  // recalculate the metagraph of tag implications from scratch
+  void make_clean();
 };
 
 #endif
