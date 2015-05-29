@@ -1,3 +1,6 @@
 [submodule "c_src/test/hayai"]
 	path = c_src/test/hayai
 	url = https://github.com/nickbruun/hayai.git
+[submodule "c_src/vendor/asmjit"]
+	path = c_src/vendor/asmjit
+	url = https://github.com/kobalicek/asmjit.git

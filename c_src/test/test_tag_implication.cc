@@ -362,6 +362,50 @@ TEST_F(TagImplicationTest, TwoNodesRemoval_Dirty) {
 
   // remove a->c
   // shouldn't change the DAG
+  //  a    c
+  //  |    |
+  //  b -> d
+
+  ctx.mark_dirty();
+  ASSERT_TRUE(a->unimply(c));
+  ASSERT_TRUE(ctx.is_dirty());
+  ctx.make_clean();
+  ASSERT_FALSE(ctx.is_dirty());
+
+  ASSERT_EQ(ctx.sink_meta_nodes, SET(SCCMetaNode*, {c->meta_node}));
+  ASSERT_EQ(ctx.meta_nodes.size(), 2);
+
+  ASSERT_EQ(a->meta_node, b->meta_node);
+  ASSERT_EQ(c->meta_node, d->meta_node);
+}
+
+TEST_F(TagImplicationTest, TwoNodesRemoval_AutoClean) {
+  ctx.mark_dirty();
+  ASSERT_TRUE(ctx.is_dirty());
+  ASSERT_TRUE(a->imply(b));
+  ASSERT_TRUE(b->imply(a));
+  ASSERT_TRUE(c->imply(d));
+  ASSERT_TRUE(d->imply(c));
+
+  ASSERT_TRUE(a->imply(c));
+  ASSERT_TRUE(b->imply(d));
+  ASSERT_TRUE(ctx.is_dirty());
+  ctx.make_clean();
+  ASSERT_FALSE(ctx.is_dirty());
+
+  ASSERT_EQ(ctx.sink_meta_nodes, SET(SCCMetaNode*, {c->meta_node}));
+  ASSERT_EQ(ctx.meta_nodes.size(), 2);
+
+  // SCCs: {a, b} and {c, d}
+  //  a -> c
+  //  |    |
+  //  b -> d
+
+  // remove a->c
+  // shouldn't change the DAG
+  //  a    c
+  //  |    |
+  //  b -> d
 
   ctx.mark_dirty();
   ASSERT_TRUE(a->unimply(c));

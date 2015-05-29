@@ -1,6 +1,8 @@
 #include "query.h"
 #include "context.h"
 
+#include <asmjit/asmjit.h>
+
 #include <stack>
 #include <queue>
 #include <vector>
@@ -62,17 +64,25 @@ QueryClauseNot *build_not(QueryClause *c) {
 
 // forward decls
 QueryClause* hc_tree_optimize(QueryClauseBin* clause);
+QueryClause* jit_optimize(QueryClause* clause);
 
-QueryClause *optimize(QueryClause *clause) {
-  // test for tree restructuring
-  auto cast_bin = dynamic_cast<QueryClauseBin*>(clause);
-  // not a binary clause; ignore
-  if(!cast_bin) {
-    return clause;
+QueryClause *optimize(QueryClause *clause, QueryOptFlags flags) {
+
+  if(flags & QueryOptFlags_Reorder) {
+    auto cast_bin = dynamic_cast<QueryClauseBin*>(clause);
+    // not a binary clause; ignore
+    if(cast_bin) {
+      clause = hc_tree_optimize(cast_bin);
+    }
   }
-  else {
-    return hc_tree_optimize(cast_bin);
+
+  if(flags & QueryOptFlags_JIT) {
+    auto old = clause;
+    clause = jit_optimize(clause);
+    delete old;
   }
+
+  return clause;
 }
 
 class QueryClauseCompare
@@ -193,4 +203,118 @@ QueryClause* hc_tree_optimize(QueryClauseBin* clause) {
 
   // last element in the
   return queued_leafs.top();
+}
+
+struct QueryClauseJitNode : public QueryClause {
+  asmjit::JitRuntime runtime;
+
+  typedef bool (*func_type)(const std::unordered_set<Tag*>*);
+  func_type func;
+
+  QueryClauseJitNode() {}
+  virtual ~QueryClauseJitNode() {}
+
+  virtual int depth()        const { return 0; }
+  virtual int num_children() const { return 0; }
+  virtual int entity_count() const { return 0; }
+
+  virtual bool matches_set(const std::unordered_set<Tag*>& tags) const {
+    return func(&tags);
+  }
+
+  virtual QueryClauseJitNode *dup() const {
+    assert(false);
+    return nullptr;
+  }
+
+  virtual void debug_print(int indent = 0) const {
+    print_indent(indent);
+    std::cerr << "jit()" << std::endl;
+  }
+};
+
+// TODO: merge this logic with the matches_set methods on MetaNode and LitNode
+bool extern_set_has_tag(const std::unordered_set<Tag*>* tags, Tag* tag) {
+  return tags->find(tag) != tags->end();
+}
+bool extern_set_has_meta(const std::unordered_set<Tag*>* tags, const SCCMetaNode* node) {
+  for(auto t : *tags) {
+    if(t->meta_node == node) return true;
+  }
+
+  return false;
+}
+
+QueryClause* jit_optimize(QueryClause* clause) {
+  using namespace asmjit;
+
+  auto ret = new QueryClauseJitNode();
+
+  X86Compiler c(&(ret->runtime));
+  c.addFunc(kFuncConvHost, FuncBuilder1<int, std::unordered_set<Tag*>*>());
+
+  X86GpVar tag_set_ptr(c, kVarTypeIntPtr);
+  c.setArg(0, tag_set_ptr);
+
+  X86GpVar test_var(c, kVarTypeInt8, "test_var");
+
+  X86GpVar has_tag_func_ptr(c,  kVarTypeIntPtr, "tag_fn");
+  X86GpVar has_meta_func_ptr(c, kVarTypeIntPtr, "meta_fn");
+  c.mov(has_tag_func_ptr, imm_ptr((void*)extern_set_has_tag));
+  c.mov(has_meta_func_ptr, imm_ptr((void*)extern_set_has_meta));
+
+  std::function<void(const QueryClause*, X86GpVar&)> codegen_tree =
+    [&c, &has_tag_func_ptr, &has_meta_func_ptr, &tag_set_ptr, &codegen_tree]
+    (const QueryClause* clause, X86GpVar& res_var)
+  {
+    if(auto bin = dynamic_cast<const QueryClauseBin*>(clause)) {
+      codegen_tree(bin->l, res_var);
+      Label Lcompare_done(c);
+
+      c.test(res_var, res_var);
+      if(bin->type == QueryClauseAnd) {
+        // first clause is false? short circuit
+        c.je(Lcompare_done);
+      }
+      else {
+        // first clause true? short circuit
+        c.jne(Lcompare_done);
+      }
+
+      codegen_tree(bin->r, res_var);
+      c.bind(Lcompare_done);
+    }
+    else if(auto lit = dynamic_cast<const QueryClauseLit*>(clause)) {
+      X86CallNode* call = c.call(has_tag_func_ptr, kFuncConvHost, FuncBuilder2<int, int*, int*>());
+      call->setArg(0, tag_set_ptr);
+      call->setArg(1, imm_ptr(lit->t));
+      call->setRet(0, res_var);
+    }
+    else if(auto meta = dynamic_cast<const QueryClauseMetaNode*>(clause)) {
+      X86CallNode* call = c.call(has_meta_func_ptr, kFuncConvHost, FuncBuilder2<int, int*, int*>());
+      call->setArg(0, tag_set_ptr);
+      call->setArg(1, imm_ptr(meta->node));
+      call->setRet(0, res_var);
+    }
+    else if(auto any = dynamic_cast<const QueryClauseAny*>(clause)) {
+      c.mov(res_var, 1);
+    }
+    else if(auto not_ = dynamic_cast<const QueryClauseNot*>(clause)) {
+      codegen_tree(not_->c, res_var);
+      c.xor_(res_var, 1);
+    }
+    else {
+      clause->debug_print();
+      assert(false && "don't know how to handle that node type");
+    }
+  };
+
+  codegen_tree(clause, test_var);
+  c.ret(test_var);
+  c.endFunc();
+
+  void* func = c.make();
+  ret->func = (QueryClauseJitNode::func_type) func;
+
+  return ret;
 }

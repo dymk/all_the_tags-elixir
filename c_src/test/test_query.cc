@@ -148,3 +148,57 @@ TEST_F(QueryTest, Implication1) {
 
   delete query;
 }
+
+TEST_F(QueryTest, QueryOptimJITLit) {
+  auto query = build_lit(a);
+
+  if(debug) query->debug_print();
+  query = dynamic_cast<QueryClause*>(optimize(query, QueryOptFlags_JIT));
+  if(debug) query->debug_print();
+
+  ASSERT_FALSE(query->matches_set(e1->tags));
+  e1->add_tag(a);
+  ASSERT_TRUE(query->matches_set(e1->tags));
+
+  delete query;
+}
+
+TEST_F(QueryTest, QueryOptimJITLit_Ors) {
+  QueryClause* query = build_or(
+    build_lit(a),
+    build_lit(b));
+
+  if(debug) query->debug_print();
+  query = dynamic_cast<QueryClause*>(optimize(query, QueryOptFlags_JIT));
+  if(debug) query->debug_print();
+
+  ASSERT_FALSE(query->matches_set(e1->tags));
+  ASSERT_FALSE(query->matches_set(e2->tags));
+  e1->add_tag(a);
+  ASSERT_TRUE(query->matches_set(e1->tags));
+  ASSERT_FALSE(query->matches_set(e2->tags));
+
+  e2->add_tag(b);
+  ASSERT_TRUE(query->matches_set(e1->tags));
+  ASSERT_TRUE(query->matches_set(e2->tags));
+
+  delete query;
+}
+
+TEST_F(QueryTest, QueryOptimJITLit_Ands) {
+  QueryClause* query = build_and(
+    build_lit(a),
+    build_lit(b));
+
+  if(debug) query->debug_print();
+  query = dynamic_cast<QueryClause*>(optimize(query, QueryOptFlags_JIT));
+  if(debug) query->debug_print();
+
+  ASSERT_FALSE(query->matches_set(e1->tags));
+  e1->add_tag(a);
+  ASSERT_FALSE(query->matches_set(e1->tags));
+  e1->add_tag(b);
+  ASSERT_TRUE(query->matches_set(e1->tags));
+
+  delete query;
+}

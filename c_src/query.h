@@ -12,11 +12,16 @@ struct QueryClauseBin;
 struct QueryClauseNot;
 struct SCCMetaNode;
 
+enum QueryOptFlags {
+  QueryOptFlags_Reorder = 0x1,
+  QueryOptFlags_JIT     = 0x2
+};
+
 QueryClause    *build_lit(Tag *tag);
 QueryClauseBin *build_and(QueryClause *r, QueryClause *l);
 QueryClauseBin *build_or (QueryClause *r, QueryClause *l);
 QueryClauseNot *build_not(QueryClause *c);
-QueryClause    *optimize(QueryClause *clause);
+QueryClause    *optimize(QueryClause *clause, QueryOptFlags flags = QueryOptFlags_Reorder);
 
 // root clause AST type
 struct QueryClause {
