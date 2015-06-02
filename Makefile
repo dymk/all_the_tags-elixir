@@ -40,8 +40,14 @@ LIBGTEST = $(TESTDIR)/hayai/vendor/gtest/libgtest.a
 
 TEST_FILES = $(wildcard $(TESTDIR)/*.cc)
 TEST_SRC = $(SOURCE_FILES) $(TEST_FILES)
-c_src/test/runner: $(LIBHAYAI) $(LIBASMJIT) $(TEST_SRC) $(H_FILES) $(wildcard $(TESTDIR)/*.h)
-	$(CXX) -o $@ $(TEST_SRC) $(LIBASMJIT) $(LIBHAYAI) $(LIBGTEST) -I$(HAYAIDIR) -I$(GTESTDIR) -I$(TESTDIR) $(CFLAGS)
+TEST_O = $(TEST_SRC:.cc=.o)
+
+c_src/test/runner: CFLAGS += -I$(HAYAIDIR) -I$(GTESTDIR)
+c_src/test/runner: $(LIBHAYAI) $(LIBASMJIT) $(TEST_O) $(H_FILES) $(wildcard $(TESTDIR)/*.h)
+	$(CXX) -o $@ $(TEST_O) $(LIBASMJIT) $(LIBHAYAI) $(LIBGTEST) -I$(TESTDIR) $(CFLAGS)
+
+.cc.o: $(wildcard **/*.h)
+	$(CXX) -c -o $@ $< $(CFLAGS)
 
 c_src/test/hayai/src/libhayai_main.a:
 	git submodule init
@@ -64,3 +70,4 @@ priv_dir:
 clean:
 	rm -rf priv_dir/*
 	rm -rf c_src/test/runner
+	rm -rf $(TEST_O)

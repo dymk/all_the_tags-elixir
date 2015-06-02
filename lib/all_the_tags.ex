@@ -41,6 +41,9 @@ defmodule AllTheTags do
   def get_implies(_handle, _tag), do: not_loaded
   def get_implied_by(_handle, _tag), do: not_loaded
 
+  def mark_dirty(_handle), do: not_loaded
+  def is_dirty(_handle),   do: not_loaded
+
   defp init_lib() do
     not_loaded
   end

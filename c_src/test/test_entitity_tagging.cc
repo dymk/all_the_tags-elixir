@@ -41,6 +41,26 @@ public:
   }
 };
 
+class EntityAndRealTagTest : public ::testing::Test {
+public:
+  Context ctx;
+  Entity *e1, *e2;
+  Tag *cat, *dog, *feline, *cainine, *zoo, *zoo2;
+
+  void SetUp() {
+    e1 = ctx.new_entity();
+    e2 = ctx.new_entity();
+    assert(e1 && e2);
+
+    cat = ctx.new_tag("cat");
+    dog = ctx.new_tag("dog");
+    feline = ctx.new_tag("feline");
+    cainine = ctx.new_tag("cainine");
+    zoo = ctx.new_tag("zoo");
+    zoo2 = ctx.new_tag("zoo2");
+  }
+};
+
 TEST_F(EntityAndTagTest, TagEntity) {
   ASSERT_TRUE(e1->add_tag(foo));
   ASSERT_EQ(e1->tags, SET(Tag*, {foo}));

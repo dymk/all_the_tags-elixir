@@ -76,6 +76,42 @@ defmodule AllTheTagsTest do
     assert same_lists(t, [{:direct, "foo"}, {:direct, "bar"}])
   end
 
+  test "deep implied tags are retrieved", %{handle: handle} do
+    ["a", "b", "c", "d", "e"] |> Enum.each(&(AllTheTags.new_tag(handle, &1)))
+
+    handle |> AllTheTags.imply_tag("a", "b")
+    handle |> AllTheTags.imply_tag("a", "c")
+    handle |> AllTheTags.imply_tag("c", "d")
+    handle |> AllTheTags.imply_tag("b", "d")
+    handle |> AllTheTags.imply_tag("d", "e")
+
+    #     a
+    #    / \
+    #   b   c
+    #    \ /
+    #     d -> e
+
+    e = set_up_e(handle)
+    handle |> AllTheTags.add_tag(e, "a")
+
+    {:ok, tags_list} = AllTheTags.entity_tags(handle, e)
+    tags_list = implies_set_to_hash(tags_list)
+
+    should_be = [
+      {:direct, "a"},
+      {:implied, "b", ["a"]},
+      {:implied, "c", ["a"]},
+      {:implied, "d", ["b", "c"]},
+      {:implied, "e", ["d"]}
+    ] |> implies_set_to_hash
+
+    assert HashSet.equal?(tags_list, should_be)
+
+    ["a", "b", "c", "d", "e"] |> Enum.map(fn(tag) ->
+      assert {:ok, [e]} == AllTheTags.do_query(handle, tag)
+    end)
+  end
+
   test "tag query works", %{handle: handle} do
     e = set_up_e(handle)
 
@@ -153,6 +189,45 @@ defmodule AllTheTagsTest do
     assert AllTheTags.get_implied_by(handle, "bar") == {:ok, ["foo", "baz"]}
   end
 
+  test "inserting entities in parallel works", %{handle: handle} do
+    assert 0 == AllTheTags.num_entities(handle)
+
+    num = 100
+    per = 1000
+
+    procs = Enum.map(1..num, fn(_) ->
+      Task.async fn ->
+        1..per |> Enum.each(fn(_) ->
+          handle |> AllTheTags.new_entity
+        end)
+      end
+    end)
+
+    procs |> Enum.each(&Task.await(&1))
+
+    assert num*per == AllTheTags.num_entities(handle)
+  end
+
+  test "can dirty the context, and still call query on it", %{handle: handle} do
+    e = handle |> set_up_e
+
+    handle |> AllTheTags.add_tag(e, "foo")
+
+    handle |> AllTheTags.imply_tag("foo", "bar")
+    handle |> AllTheTags.imply_tag("bar", "foo")
+    assert false == handle |> AllTheTags.is_dirty
+    assert {:ok, [e]} == handle |> AllTheTags.do_query("foo")
+    assert {:ok, [e]} == handle |> AllTheTags.do_query("bar")
+
+    handle |> AllTheTags.unimply_tag("foo", "bar")
+    assert true == handle |> AllTheTags.is_dirty
+
+    assert {:ok, [e]} == handle |> AllTheTags.do_query("foo")
+    assert {:ok, []}  == handle |> AllTheTags.do_query("bar")
+
+    assert false == handle |> AllTheTags.is_dirty
+  end
+
   defp set_up_e(handle) do
     handle |> AllTheTags.new_tag("foo")
     handle |> AllTheTags.new_tag("bar")
@@ -164,5 +239,14 @@ defmodule AllTheTagsTest do
   end
   defp list_to_hs(list) do
     Enum.into(list, HashSet.new)
+  end
+
+  defp implies_set_to_hash(list) do
+    list
+    |> Enum.map(fn
+      {:implied, tag, impliers} -> {:implied, tag, list_to_hs(impliers)}
+      other -> other
+    end)
+    |> list_to_hs
   end
 end

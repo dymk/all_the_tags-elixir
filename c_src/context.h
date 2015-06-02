@@ -127,6 +127,9 @@ public:
   // calls 'match' with all entities that match the QueryClause
   template<class UnaryFunction>
   void query(const QueryClause *q, UnaryFunction match) const {
+    if(is_dirty()) {
+      assert(false && "can't call query on dirty context");
+    }
 
     auto iter = id_to_entity.begin();
     auto end = id_to_entity.end();

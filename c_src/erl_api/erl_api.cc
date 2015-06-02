@@ -3,8 +3,6 @@
 #include <cstring>
 #include <numeric>
 
-#include "query.h"
-#include "context.h"
 #include "erl_api_helpers.h"
 
 static bool debug = false;
@@ -15,8 +13,8 @@ static void context_resource_cleanup(ErlNifEnv *env, void *arg) {
   if(debug) std::cout << "native: cleaning up resource (STUB)" << std::endl;
 
   assert(arg);
-  Context *context = (Context*) arg;
-  context->~Context();
+  ContextWrapper *cw = (ContextWrapper*) arg;
+  cw->~ContextWrapper();
 }
 
 // main entrypoint that erlang talks to to perform queries on
@@ -51,8 +49,8 @@ ERL_FUNC(new_) {
   ENSURE_ARG(argc == 0);
 
   assert(context_type);
-  Context *context = (Context*)enif_alloc_resource(context_type, sizeof(Context));
-  if(context == nullptr) {
+  ContextWrapper *cw = (ContextWrapper*)enif_alloc_resource(context_type, sizeof(ContextWrapper));
+  if(cw == nullptr) {
     if(debug) std::cout << "native: could not allocate resource" << std::endl;
     return A_ERR(env);
   }
@@ -61,23 +59,24 @@ ERL_FUNC(new_) {
   }
 
   // call ctor on erlang allocated memory
-  new(context) Context();
+  new(cw) ContextWrapper();
 
-  auto term = enif_make_resource(env, context);
-  enif_release_resource(context);
+  auto term = enif_make_resource(env, cw);
+  enif_release_resource(cw);
   return enif_make_tuple2(env, A_OK(env), term);
 }
 
 ERL_FUNC(new_tag) {
   ENSURE_ARG(argc == 2);
   ENSURE_CONTEXT(env, argv[0]);
+  WriteLock lock(cw);
 
   char value[100];
   ENSURE_ARG(enif_binary_or_list_to_string(env, argv[1], value, 100) > 0);
   std::string s_value(value);
 
   // allocate new tag, insert into the
-  auto t = context->new_tag(s_value);
+  auto t = context.new_tag(s_value);
   if(!t) {
     return A_ERR(env);
   }
@@ -89,32 +88,33 @@ ERL_FUNC(new_tag) {
 ERL_FUNC(num_tags) {
   ENSURE_ARG(argc == 1);
   ENSURE_CONTEXT(env, argv[0]);
+  ReadLock lock(cw);
 
-  return enif_make_uint(env, context->num_tags());
+  return enif_make_uint(env, context.num_tags());
 }
 
 ERL_FUNC(new_entity) {
   ENSURE_ARG(argc == 1);
   ENSURE_CONTEXT(env, argv[0]);
+  WriteLock lock(cw);
 
-  auto e = context->new_entity();
+  auto e = context.new_entity();
   return enif_make_uint(env, e->id);
 }
 
 ERL_FUNC(num_entities) {
   ENSURE_ARG(argc == 1);
+  ENSURE_CONTEXT(env, argv[0]);
+  ReadLock lock(cw);
 
-  Context *context = nullptr;
-  ENSURE_ARG(enif_get_resource(env, argv[0], context_type, (void**)&context));
-  assert(context);
-
-  return enif_make_uint(env, context->num_entities());
+  return enif_make_uint(env, context.num_entities());
 }
 
 // {handle, entity_id, tag_value}
 ERL_FUNC(add_tag) {
   ENSURE_ARG(argc == 3);
   ENSURE_CONTEXT(env, argv[0]);
+  WriteLock lock(cw);
 
   id_type entity_id;
   ENSURE_ARG(enif_get_uint(env, argv[1], &entity_id));
@@ -124,10 +124,10 @@ ERL_FUNC(add_tag) {
   std::string stag_val(tag_val);
 
   // look up tag based on value given
-  auto tag = context->tag_by_value(stag_val);
+  auto tag = context.tag_by_value(stag_val);
   if(!tag) return A_ERR(env);
 
-  auto entity = context->entity_by_id(entity_id);
+  auto entity = context.entity_by_id(entity_id);
   if(!entity) return A_ERR(env);
 
   if(!entity->add_tag(tag)) return A_ERR(env);
@@ -138,15 +138,15 @@ ERL_FUNC(add_tag) {
 ERL_FUNC(entity_tags) {
   ENSURE_ARG(argc == 2);
   ENSURE_CONTEXT(env, argv[0]);
+  ReadLock lock(cw);
 
   id_type entity_id;
   ENSURE_ARG(enif_get_uint(env, argv[1], &entity_id));
-  auto entity = context->entity_by_id(entity_id);
+  auto entity = context.entity_by_id(entity_id);
   if(!entity) return A_ERR(env);
 
   std::unordered_set<Tag*>                            all_set; // superset of all other sets
   std::unordered_set<Tag*>                            direct;  // direclty tagged on the entity
-  std::unordered_map<Tag*, Tag*>                      parents; // parents of other tags
   std::unordered_map<Tag*, std::unordered_set<Tag*> > implied; // implied by another tag on the post
 
   // initialize direct tags and their parents
@@ -178,38 +178,30 @@ ERL_FUNC(entity_tags) {
 
   ERL_NIF_TERM res_list = enif_make_list(env, 0); // start with empty list
 
+  auto d_atom = enif_make_atom(env, "direct");
+  auto i_atom = enif_make_atom(env, "implied");
+
   for(Tag* tag : direct) {
     auto term = binary_from_string(tag->value, env);
     if(enif_is_exception(env, term)) return term;
     res_list = enif_make_list_cell(env,
-      enif_make_tuple2(env, enif_make_atom(env, "direct"), term), res_list);
+      enif_make_tuple2(env, d_atom, term), res_list);
   }
 
-  for(auto pair : parents) {
-    auto implied = pair.first;
-    auto implier = pair.second;
+  for(auto pair : implied) {
+    auto tag      = pair.first;
+    auto impliers = pair.second;
 
-    auto imterm = binary_from_string(implied->value, env);
-    if(enif_is_exception(env, imterm)) return imterm;
-    auto erterm = binary_from_string(implier->value, env);
-    if(enif_is_exception(env, erterm)) return erterm;
+    auto impliers_term = enif_make_list(env, 0);
+    for(auto t : impliers) {
+      impliers_term = enif_make_list_cell(env,
+        binary_from_string(t->value, env), impliers_term);
+    }
 
+    auto term = binary_from_string(tag->value, env);
     res_list = enif_make_list_cell(env,
-      enif_make_tuple3(env, enif_make_atom(env, "parent"), imterm, erterm), res_list);
+      enif_make_tuple3(env, i_atom, term, impliers_term), res_list);
   }
-
-  // for(auto pair : implied) {
-  //   auto implied = pair.first;
-  //   auto implier = pair.second;
-
-  //   auto imterm = binary_from_string(implied->value, env);
-  //   if(enif_is_exception(env, imterm)) return imterm;
-  //   auto erterm = binary_from_string(implier->value, env);
-  //   if(enif_is_exception(env, erterm)) return erterm;
-
-  //   res_list = enif_make_list_cell(env,
-  //     enif_make_tuple3(env, enif_make_atom(env, "implied"), imterm, erterm), res_list);
-  // }
 
   return enif_make_tuple2(env, A_OK(env), res_list);
 }
@@ -219,6 +211,19 @@ ERL_FUNC(do_query) {
   ENSURE_ARG(argc == 2);
   ENSURE_CONTEXT(env, argv[0]);
 
+  Lmake_clean:
+  while(context.is_dirty()) {
+    WriteLock wlock(cw);
+    context.make_clean();
+  }
+
+  ReadLock rlock(cw);
+  if(context.is_dirty()) {
+    // 'goto' will call the dtor on rlock, as it's jumping
+    // before its decl. spec section 6.6, paragraph 2
+    goto Lmake_clean;
+  }
+
   if(debug) std::cout << "native: do_query called" << std::endl;
 
   QueryClause *c = build_clause(env, argv[1], context);
@@ -226,7 +231,7 @@ ERL_FUNC(do_query) {
 
   ERL_NIF_TERM res_list = enif_make_list(env, 0); // start with empty list
 
-  context->query(c, [&](const Entity* e) {
+  context.query(c, [&](const Entity* e) {
     auto term = enif_make_uint(env, e->id);
     res_list = enif_make_list_cell(env, term, res_list);
   });
@@ -239,6 +244,7 @@ ERL_FUNC(do_query) {
 ERL_FUNC(imply_tag) {
   ENSURE_ARG(argc == 3);
   ENSURE_CONTEXT(env, argv[0]);
+  WriteLock lock(cw);
 
   Tag *implier = get_tag_from_arg(context, env, argv[1]);
   if(!implier) return A_ERR(env);
@@ -254,6 +260,7 @@ ERL_FUNC(imply_tag) {
 ERL_FUNC(unimply_tag) {
   ENSURE_ARG(argc == 3);
   ENSURE_CONTEXT(env, argv[0]);
+  WriteLock lock(cw);
 
   Tag *implier = get_tag_from_arg(context, env, argv[1]);
   if(!implier) return A_ERR(env);
@@ -270,6 +277,7 @@ ERL_FUNC(unimply_tag) {
 ERL_FUNC(get_implies) {
   ENSURE_ARG(argc == 2);
   ENSURE_CONTEXT(env, argv[0]);
+  ReadLock lock(cw);
 
   Tag *tag = get_tag_from_arg(context, env, argv[1]);
   if(!tag) return A_ERR(env);
@@ -285,6 +293,7 @@ ERL_FUNC(get_implies) {
 ERL_FUNC(get_implied_by) {
   ENSURE_ARG(argc == 2);
   ENSURE_CONTEXT(env, argv[0]);
+  ReadLock lock(cw);
 
   Tag *tag = get_tag_from_arg(context, env, argv[1]);
   if(!tag) return A_ERR(env);
@@ -298,23 +307,27 @@ ERL_FUNC(get_implied_by) {
   return enif_make_tuple2(env, A_OK(env), res_list);
 }
 
-#if 0
 ERL_FUNC(is_dirty) {
   ENSURE_ARG(argc == 1);
   ENSURE_CONTEXT(env, argv[0]);
+  ReadLock lock(cw);
 
   return context.is_dirty() ? enif_make_atom(env, "true") : enif_make_atom(env, "false");
 }
+
 ERL_FUNC(mark_dirty) {
   ENSURE_ARG(argc == 1);
   ENSURE_CONTEXT(env, argv[0]);
+  WriteLock lock(cw);
 
   context.mark_dirty();
   return A_OK(env);
 }
+#if 0
 ERL_FUNC(make_clean) {
   ENSURE_ARG(argc == 1);
   ENSURE_CONTEXT(env, argv[0]);
+  WriteLock lock(cw);
 
   context.make_clean();
 
@@ -335,9 +348,9 @@ static ErlNifFunc nif_funcs[] = {
   {"imply_tag",        3, imply_tag,        0},
   {"unimply_tag",      3, unimply_tag,      0},
   {"get_implies",      2, get_implies,      0},
-  {"get_implied_by",   2, get_implied_by,   0}
-  // {"is_dirty",         1, is_dirty,         0},
-  // {"mark_dirty",       1, mark_dirty,       0},
+  {"get_implied_by",   2, get_implied_by,   0},
+  {"is_dirty",         1, is_dirty,         0},
+  {"mark_dirty",       1, mark_dirty,       0}
   // {"make_clean",       1, make_clean,       0}
 };
 

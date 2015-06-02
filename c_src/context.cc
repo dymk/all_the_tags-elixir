@@ -257,6 +257,7 @@ void Context::dirty_tag_imply_dag(Tag* tag, bool gained_imply, Tag* target) {
 
 void Context::make_clean() {
   if(!this->recalc_metagraph) return;
+
   this->recalc_metagraph = false;
 
   // clear metanode for all tags

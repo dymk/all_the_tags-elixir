@@ -4,7 +4,7 @@
 #include "erl_api_helpers.h"
 
 // converts erlang clause AST into native AST representation
-QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context* c) {
+QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context& c) {
   if(enif_is_list(env, term) || enif_is_binary(env, term)) {
     // literal tag string
     // convert to string, get tag by that ID
@@ -14,7 +14,7 @@ QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context
       return nullptr;
     }
     std::string stag_val(tag_val);
-    auto tag = c->tag_by_value(stag_val);
+    auto tag = c.tag_by_value(stag_val);
     if(!tag) return nullptr;
 
     return build_lit(tag);
@@ -103,7 +103,7 @@ int enif_binary_or_list_to_string(ErlNifEnv *env, ERL_NIF_TERM term, char *buf, 
   return -1;
 }
 
-Tag *get_tag_from_arg(Context* context, ErlNifEnv* env, ERL_NIF_TERM term) {
+Tag *get_tag_from_arg(const Context& context, ErlNifEnv* env, ERL_NIF_TERM term) {
   char tag_val[100];
   if(enif_binary_or_list_to_string(env, term, tag_val, 100) <= 0) {
     return nullptr;
@@ -112,7 +112,7 @@ Tag *get_tag_from_arg(Context* context, ErlNifEnv* env, ERL_NIF_TERM term) {
   std::string stag_val(tag_val);
 
   // look up tag based on value given
-  return context->tag_by_value(stag_val);
+  return context.tag_by_value(stag_val);
 }
 
 ERL_NIF_TERM binary_from_string(const std::string& str, ErlNifEnv *env) {

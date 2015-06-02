@@ -3,6 +3,7 @@
 erl_crash.dump
 *.ez
 *.so
+*.o
 /priv_dir
 .DS_Store
 *.dSYM
