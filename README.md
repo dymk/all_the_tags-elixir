@@ -3,7 +3,11 @@ AllTheTags
 
 A CPU and memory performant tag database for Exlir/erlang, featuring fast
 query times, the ability to represent complex tag hierarchies and implication
-rules, query JITing, and a (comparitavely) small memory footprint
+rules, query JITing and optimization, and a (comparitavely) small memory footprint.
+
+The graph of tags and the implication rules between them can contain any number of
+arbitrary cycles, allowing structures such as parent/child hierarchies, and 
+tag aliases, all of which remain performant when querying for. 
 
 The bulk of AllTheTags is implemented as a C++ library with no knowledge
 of Elixir or Erlang, and thus can be extracted out of the Elxir project with
@@ -18,6 +22,10 @@ take care of any synchronization when database writes occur.
 If the C++ project is used standalone, the user will have to guarentee that
 reads and writes are synchronized; take a look at `erl_api.cc` as an example
 of how to achieve this. 
+
+While the code is tested against a modestly sized test suite, use it at your own
+risk (or even better, report bugs!), as any C++ bugs have the potential to crash 
+the Erlang VM or corrupt memory. 
 
 
 Why was most of this done in C++?
@@ -150,7 +158,7 @@ What is a "dirty" database?
 
 Warning: implementation details follow
 
-AllTheTags internally stores a metagraph (directed acyclic graph) of all the
+AllTheTags internally stores a metagraph (which is a directed acyclic graph) of all the
 tag implication rules as a means to quickly test if an entity has a given tag - 
 or any tag implied by a tag - belong to it. The metagraph is built up
 incrementally with every implication edge added (and is generally a very quick operation), 
@@ -176,3 +184,4 @@ TODO: Benchmarks
 
 gotta add benchmarks for combinations of no query optimization, 
 huffman code tree optimization, JIT optimization, and combinations thereof.
+
