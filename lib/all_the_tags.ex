@@ -28,6 +28,10 @@ defmodule AllTheTags do
     not_loaded
   end
 
+  def remove_tag(_handle, _entity, _tag) do
+    not_loaded
+  end
+
   def entity_tags(_handle, _entity) do
     not_loaded
   end

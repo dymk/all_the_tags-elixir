@@ -228,6 +228,18 @@ defmodule AllTheTagsTest do
     assert false == handle |> AllTheTags.is_dirty
   end
 
+  test "can remove tags", %{handle: handle} do
+    e = handle |> set_up_e
+
+    assert :ok        == AllTheTags.add_tag(handle, e, "foo")
+    assert {:ok, [e]} == AllTheTags.do_query(handle, "foo")
+
+    assert :ok       == AllTheTags.remove_tag(handle, e, "foo")
+    assert {:ok, []} == AllTheTags.do_query(handle, "foo")
+
+    assert :error == AllTheTags.remove_tag(handle, e, "foo")
+  end
+
   defp set_up_e(handle) do
     handle |> AllTheTags.new_tag("foo")
     handle |> AllTheTags.new_tag("bar")

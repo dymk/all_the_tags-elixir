@@ -135,6 +135,31 @@ ERL_FUNC(add_tag) {
   return A_OK(env);
 }
 
+// {handle, entity_id, tag_value}
+ERL_FUNC(remove_tag) {
+  ENSURE_ARG(argc == 3);
+  ENSURE_CONTEXT(env, argv[0]);
+  WriteLock lock(cw);
+
+  id_type entity_id;
+  ENSURE_ARG(enif_get_uint(env, argv[1], &entity_id));
+
+  char tag_val[100];
+  ENSURE_ARG(enif_binary_or_list_to_string(env, argv[2], tag_val, 100) > 0);
+  std::string stag_val(tag_val);
+
+  // look up tag based on value given
+  auto tag = context.tag_by_value(stag_val);
+  if(!tag) return A_ERR(env);
+
+  auto entity = context.entity_by_id(entity_id);
+  if(!entity) return A_ERR(env);
+
+  if(!entity->remove_tag(tag)) return A_ERR(env);
+
+  return A_OK(env);
+}
+
 ERL_FUNC(entity_tags) {
   ENSURE_ARG(argc == 2);
   ENSURE_CONTEXT(env, argv[0]);
@@ -343,6 +368,7 @@ static ErlNifFunc nif_funcs[] = {
   {"new_entity",       1, new_entity,       0},
   {"num_entities",     1, num_entities,     0},
   {"add_tag",          3, add_tag,          0},
+  {"remove_tag",       3, remove_tag,       0},
   {"entity_tags",      2, entity_tags,      0},
   {"do_query",         2, do_query,         0},
   {"imply_tag",        3, imply_tag,        0},
