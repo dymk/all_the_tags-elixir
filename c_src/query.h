@@ -98,7 +98,15 @@ struct QueryClauseBin : public QueryClause {
 
   virtual int depth()        const { return std::max(l->depth(), r->depth()) + 1;      }
   virtual int num_children() const { return l->num_children() + r->num_children() + 1; }
-  virtual int entity_count() const { return l->entity_count() + r->entity_count();     }
+  virtual int entity_count() const {
+    if(type == QueryClauseAnd) {
+      return std::min(l->entity_count(), r->entity_count());
+    }
+    else {
+      return std::max(l->entity_count(), r->entity_count());
+    }
+  }
+
   virtual QueryClauseBin *dup() const {
     return new QueryClauseBin(type, l->dup(), r->dup());
   }
@@ -142,7 +150,6 @@ struct QueryClauseMetaNode : public QueryClause {
 
   QueryClauseMetaNode(SCCMetaNode *node_) : node(node_) {}
   virtual ~QueryClauseMetaNode() { node = nullptr; }
-
 
   virtual bool matches_set(const std::unordered_set<Tag*>& tags) const {
     // do any of the tags belong to this metanode
