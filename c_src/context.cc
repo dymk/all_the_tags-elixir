@@ -144,7 +144,7 @@ void Context::dirty_tag_imply_dag(Tag* tag, bool gained_imply, Tag* target) {
         for(auto scc : in_scc) {
           for(auto t : scc->tags) {
             if(debug) {
-              std::cerr << "transfering tag " << t->value << std::endl;
+              std::cerr << "transfering tag " << t->id << std::endl;
             }
             t->meta_node = new_scc_node;
             assert(new_scc_node->tags.insert(t).second == true);
@@ -306,7 +306,7 @@ void Context::make_clean() {
     if(tag->implies.empty() && tag->implied_by.empty()) { continue; }
 
     if(debug) {
-      std::cerr << "tarjan: " << tag->value << " will be in the metagraph" << std::endl;
+      std::cerr << "tarjan: " << tag->id << " will be in the metagraph" << std::endl;
     }
 
     tarjan_nodes.push_back(TarjanWrapper(tag));
@@ -325,7 +325,7 @@ void Context::make_clean() {
 
     if(debug) {
       std::cerr <<
-        "tag " << v->tag->value <<
+        "tag " << v->tag->id <<
         " implies " << v->tag->implies.size() <<
         " others" << std::endl;
     }
@@ -335,7 +335,7 @@ void Context::make_clean() {
       TarjanWrapper* w = (*mapped).second;
 
       if(debug) {
-        std::cerr << "(-> " << w->tag->value << ")" << std::endl;
+        std::cerr << "(-> " << w->tag->id << ")" << std::endl;
       }
 
       if(w->index == -1) {
@@ -407,7 +407,7 @@ void Context::make_clean() {
       for(auto implied : tag->implies) {
 
         if(debug) {
-          std::cerr << "tarjan: checking edge " << tag->value << " -> " << implied->value << std::endl;
+          std::cerr << "tarjan: checking edge " << tag->id << " -> " << implied->id << std::endl;
         }
 
         auto imn = implied->meta_node;
@@ -433,36 +433,25 @@ void Context::make_clean() {
   }
 }
 
-Tag *Context::new_tag_common(const std::string& val, id_type id) {
-  auto t = new Tag(this, id, val);
-
-  this->value_to_tag.insert(std::make_pair(val, t)); // all values
+Tag *Context::new_tag_common(id_type id) {
+  auto t = new Tag(this, id);
   this->id_to_tag.insert(std::make_pair(id, t));
-
   return t;
 }
 
-Tag* Context::new_tag(const std::string& val, id_type id) {
+Tag* Context::new_tag(id_type id) {
   if(id_to_tag.find(id) != id_to_tag.end()) {
     return nullptr;
   }
 
-  if(tag_by_value(val)) {
-    return nullptr;
-  }
-
-  return new_tag_common(val, id);
+  return new_tag_common(id);
 }
 
-Tag *Context::new_tag(const std::string& val) {
-  if(tag_by_value(val)) {
-    return nullptr;
-  }
-
+Tag *Context::new_tag() {
   while(true) {
     id_type id = last_tag_id++;
     if(id_to_tag.find(id) == id_to_tag.end()) {
-      return new_tag_common(val, id);
+      return new_tag_common(id);
     }
   }
 }
@@ -488,16 +477,6 @@ Entity* Context::new_entity() {
   }
 }
 
-Tag* Context::tag_by_value(const std::string& val) const {
-
-  auto iter = value_to_tag.find(val);
-  if(iter != value_to_tag.end()) {
-    return (*iter).second;
-  }
-  else {
-    return nullptr;
-  }
-}
 Tag* Context::tag_by_id(id_type tid) const {
   auto iter = id_to_tag.find(tid);
   if(iter != id_to_tag.end()) {

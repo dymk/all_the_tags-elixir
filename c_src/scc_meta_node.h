@@ -53,7 +53,7 @@ struct SCCMetaNode {
     for(auto tag : tags) {
       if(!first) os << ", ";
       first = false;
-      os << tag->value;
+      os << tag->id;
     }
     os << "}";
     return os;

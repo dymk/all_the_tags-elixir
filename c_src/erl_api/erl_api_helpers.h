@@ -72,13 +72,7 @@ struct WriteLock {
 // caller is responsible for deleteing the returned QueryClause
 QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context& c);
 
-// convert a binary or list to a C string
-// returns the lenght of the C string, or <=0 if there was an error (not a list/binary, buf too small)
-int enif_binary_or_list_to_string(ErlNifEnv *env, ERL_NIF_TERM term, char *buf, unsigned int buflen);
-
 // Returns the Tag (or nullptr) that corresponds to the binary/list in the given context
 Tag *get_tag_from_arg(const Context& c, ErlNifEnv *env, ERL_NIF_TERM);
-
-ERL_NIF_TERM binary_from_string(const std::string& str, ErlNifEnv *env);
 
 #endif /* __ERL_HELPERS_H__ */

@@ -15,10 +15,10 @@ public:
 
 
   virtual void SetUp() {
-    foo = c.new_tag("foo");
-    bar = c.new_tag("bar");
-    baz = c.new_tag("baz");
-    qux = c.new_tag("qux");
+    foo = c.new_tag();
+    bar = c.new_tag();
+    baz = c.new_tag();
+    qux = c.new_tag();
     tags = SET(Tag*, {foo, bar, baz, qux});
 
     // baz implies qux
@@ -60,13 +60,11 @@ BENCHMARK(BenchQuery, NewEntity500, 10, 50) {
   Context c;
   for(int i = 0; i < 500; i++) { c.new_entity(); }
 }
-BENCHMARK(BenchQuery, NewTag500, 10, 50) {
+BENCHMARK(BenchQuery, NewTag1000, 10, 50) {
   Context c;
 
-  char name[100];
-  for(int i = 0; i < 500; i++) {
-    sprintf(name, "tag%d", i);
-    c.new_tag(name);
+  for(int i = 0; i < 1000; i++) {
+    c.new_tag(i);
   }
 }
 
@@ -112,10 +110,10 @@ public:
   Entity* e1;
 
   virtual void SetUp() {
-    tag_c = c.new_tag("c");
-    tag_b1 = c.new_tag("b1");
-    tag_b2 = c.new_tag("b2");
-    tag_a = c.new_tag("a");
+    tag_c = c.new_tag();
+    tag_b1 = c.new_tag();
+    tag_b2 = c.new_tag();
+    tag_a = c.new_tag();
 
     tag_a->imply(tag_b1);
     tag_b1->imply(tag_c);

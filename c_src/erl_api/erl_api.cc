@@ -66,23 +66,20 @@ ERL_FUNC(new_) {
   return enif_make_tuple2(env, A_OK(env), term);
 }
 
+// new_tag(handle, tag_id \\ nil) :: {:ok, tag_id}
 ERL_FUNC(new_tag) {
-  ENSURE_ARG(argc == 3);
+  ENSURE_ARG(argc == 2);
   ENSURE_CONTEXT(env, argv[0]);
   WriteLock lock(cw);
 
-  char value[100];
-  ENSURE_ARG(enif_binary_or_list_to_string(env, argv[1], value, 100) > 0);
-  std::string s_value(value);
-
   Tag *t;
-  if(enif_compare(argv[2], enif_make_atom(env, "nil")) == 0) {
-    t = context.new_tag(s_value);
+  if(enif_compare(argv[1], enif_make_atom(env, "nil")) == 0) {
+    t = context.new_tag();
   }
   else {
     id_type id;
-    ENSURE_ARG(enif_get_uint(env, argv[2], &id));
-    t = context.new_tag(s_value, id);
+    ENSURE_ARG(enif_get_uint(env, argv[1], &id));
+    t = context.new_tag(id);
   }
 
   if(!t) {
@@ -90,10 +87,10 @@ ERL_FUNC(new_tag) {
   }
 
   if(debug) {
-    std::cout << "native: added tag with value " << s_value << "` id " << t->id << std::endl;
+    std::cout << "native: added tag " << t->id << std::endl;
   }
 
-  return A_OK(env);
+  return enif_make_tuple2(env, A_OK(env), enif_make_uint(env, t->id));
 }
 
 ERL_FUNC(num_tags) {
@@ -120,7 +117,7 @@ ERL_FUNC(new_entity) {
     e = context.new_entity(id);
   }
 
-  return enif_make_uint(env, e->id);
+  return enif_make_tuple2(env, A_OK(env), enif_make_uint(env, e->id));
 }
 
 ERL_FUNC(num_entities) {
@@ -131,7 +128,7 @@ ERL_FUNC(num_entities) {
   return enif_make_uint(env, context.num_entities());
 }
 
-// {handle, entity_id, tag_value}
+// {handle, entity_id, tag_id}
 ERL_FUNC(add_tag) {
   ENSURE_ARG(argc == 3);
   ENSURE_CONTEXT(env, argv[0]);
@@ -140,12 +137,11 @@ ERL_FUNC(add_tag) {
   id_type entity_id;
   ENSURE_ARG(enif_get_uint(env, argv[1], &entity_id));
 
-  char tag_val[100];
-  ENSURE_ARG(enif_binary_or_list_to_string(env, argv[2], tag_val, 100) > 0);
-  std::string stag_val(tag_val);
+  id_type tag_id;
+  ENSURE_ARG(enif_get_uint(env, argv[2], &tag_id));
 
-  // look up tag based on value given
-  auto tag = context.tag_by_value(stag_val);
+  // look up tag based on id given
+  auto tag = context.tag_by_id(tag_id);
   if(!tag) return A_ERR(env);
 
   auto entity = context.entity_by_id(entity_id);
@@ -156,7 +152,7 @@ ERL_FUNC(add_tag) {
   return A_OK(env);
 }
 
-// {handle, entity_id, tag_value}
+// {handle, entity_id, tag_id}
 ERL_FUNC(remove_tag) {
   ENSURE_ARG(argc == 3);
   ENSURE_CONTEXT(env, argv[0]);
@@ -165,12 +161,11 @@ ERL_FUNC(remove_tag) {
   id_type entity_id;
   ENSURE_ARG(enif_get_uint(env, argv[1], &entity_id));
 
-  char tag_val[100];
-  ENSURE_ARG(enif_binary_or_list_to_string(env, argv[2], tag_val, 100) > 0);
-  std::string stag_val(tag_val);
+  id_type tag_id;
+  ENSURE_ARG(enif_get_uint(env, argv[2], &tag_id));
 
-  // look up tag based on value given
-  auto tag = context.tag_by_value(stag_val);
+  // look up tag
+  auto tag = context.tag_by_id(tag_id);
   if(!tag) return A_ERR(env);
 
   auto entity = context.entity_by_id(entity_id);
@@ -228,7 +223,7 @@ ERL_FUNC(entity_tags) {
   auto i_atom = enif_make_atom(env, "implied");
 
   for(Tag* tag : direct) {
-    auto term = binary_from_string(tag->value, env);
+    auto term = enif_make_int(env, tag->id);
     if(enif_is_exception(env, term)) return term;
     res_list = enif_make_list_cell(env,
       enif_make_tuple2(env, d_atom, term), res_list);
@@ -241,10 +236,10 @@ ERL_FUNC(entity_tags) {
     auto impliers_term = enif_make_list(env, 0);
     for(auto t : impliers) {
       impliers_term = enif_make_list_cell(env,
-        binary_from_string(t->value, env), impliers_term);
+        enif_make_int(env, t->id), impliers_term);
     }
 
-    auto term = binary_from_string(tag->value, env);
+    auto term = enif_make_int(env, tag->id);
     res_list = enif_make_list_cell(env,
       enif_make_tuple3(env, i_atom, term, impliers_term), res_list);
   }
@@ -331,7 +326,7 @@ ERL_FUNC(get_implies) {
   ERL_NIF_TERM res_list = enif_make_list(env, 0); // start with empty list
 
   for(auto i : tag->implies) {
-    res_list = enif_make_list_cell(env, binary_from_string(i->value, env), res_list);
+    res_list = enif_make_list_cell(env, enif_make_int(env, i->id), res_list);
   }
 
   return enif_make_tuple2(env, A_OK(env), res_list);
@@ -347,7 +342,7 @@ ERL_FUNC(get_implied_by) {
   ERL_NIF_TERM res_list = enif_make_list(env, 0); // start with empty list
 
   for(auto i : tag->implied_by) {
-    res_list = enif_make_list_cell(env, binary_from_string(i->value, env), res_list);
+    res_list = enif_make_list_cell(env, enif_make_int(env, i->id), res_list);
   }
 
   return enif_make_tuple2(env, A_OK(env), res_list);
@@ -384,7 +379,7 @@ ERL_FUNC(make_clean) {
 static ErlNifFunc nif_funcs[] = {
   {"init_lib",         0, init_lib,         0}, // private
   {"new",              0, new_,             0},
-  {"new_tag" ,         3, new_tag,          0},
+  {"new_tag" ,         2, new_tag,          0},
   {"num_tags",         1, num_tags,         0},
   {"new_entity",       2, new_entity,       0},
   {"num_entities",     1, num_entities,     0},

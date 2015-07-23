@@ -1,6 +1,10 @@
 defmodule AllTheTagsTest do
   use ExUnit.Case
 
+  @foo 1
+  @bar 2
+  @baz 3
+
   setup do
     {:ok, handle} = AllTheTags.new
     {:ok, handle: handle}
@@ -11,24 +15,20 @@ defmodule AllTheTagsTest do
   end
 
   test "handle can have tags added to it", %{handle: handle} do
-    assert :ok == AllTheTags.new_tag(handle, "foo")
-    assert :error == AllTheTags.new_tag(handle, "foo")
+    {:ok, a} = AllTheTags.new_tag(handle)
+    {:ok, b} = AllTheTags.new_tag(handle)
+    assert a != b
   end
 
-  test "case of tag matters", %{handle: handle} do
-    assert :ok    == AllTheTags.new_tag(handle, "foo")
-    assert :ok    == AllTheTags.new_tag(handle, "Foo")
-    assert :ok    == AllTheTags.new_tag(handle, "FOO")
-    assert :error == AllTheTags.new_tag(handle, "FOO")
+  test "can create tags with explicit IDs", %{handle: handle} do
+    assert {:ok, 1} == AllTheTags.new_tag(handle, 1)
   end
 
   test "num_tags works", %{handle: handle} do
     assert 0 == AllTheTags.num_tags(handle)
-    AllTheTags.new_tag(handle, "foo")
+    AllTheTags.new_tag(handle)
     assert 1 == AllTheTags.num_tags(handle)
-    AllTheTags.new_tag(handle, "foo")
-    assert 1 == AllTheTags.num_tags(handle)
-    AllTheTags.new_tag(handle, "bar")
+    AllTheTags.new_tag(handle)
     assert 2 == AllTheTags.num_tags(handle)
   end
 
@@ -49,8 +49,8 @@ defmodule AllTheTagsTest do
   test "tags can be added to an entity", %{handle: handle} do
     e = set_up_e(handle)
 
-    assert :ok    == AllTheTags.add_tag(handle, e, "foo")
-    assert :error == AllTheTags.add_tag(handle, e, "foo")
+    assert :ok    == AllTheTags.add_tag(handle, e, @foo)
+    assert :error == AllTheTags.add_tag(handle, e, @foo)
   end
 
   test "can retrieve a list of tags on the entity", %{handle: handle} do
@@ -61,24 +61,30 @@ defmodule AllTheTagsTest do
     assert t == []
 
     # one tag
-    :ok = AllTheTags.add_tag(handle, e, "foo")
+    :ok = AllTheTags.add_tag(handle, e, @foo)
     {:ok, t} = AllTheTags.entity_tags(handle, e)
-    assert t == [{:direct, "foo"}]
+    assert t == [{:direct, @foo}]
 
     # two tags (no guarentee on orders)
-    :ok = AllTheTags.add_tag(handle, e, "bar")
+    :ok = AllTheTags.add_tag(handle, e, @bar)
     {:ok, t} = AllTheTags.entity_tags(handle, e)
-    assert same_lists(t, [{:direct, "foo"}, {:direct, "bar"}])
+    assert same_lists(t, [{:direct, @foo}, {:direct, @bar}])
   end
 
   test "deep implied tags are retrieved", %{handle: handle} do
-    ["a", "b", "c", "d", "e"] |> Enum.each(&(AllTheTags.new_tag(handle, &1)))
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e = 5
 
-    handle |> AllTheTags.imply_tag("a", "b")
-    handle |> AllTheTags.imply_tag("a", "c")
-    handle |> AllTheTags.imply_tag("c", "d")
-    handle |> AllTheTags.imply_tag("b", "d")
-    handle |> AllTheTags.imply_tag("d", "e")
+    [a, b, c, d, e] |> Enum.each(&(AllTheTags.new_tag(handle, &1)))
+
+    handle |> AllTheTags.imply_tag(a, b)
+    handle |> AllTheTags.imply_tag(a, c)
+    handle |> AllTheTags.imply_tag(c, d)
+    handle |> AllTheTags.imply_tag(b, d)
+    handle |> AllTheTags.imply_tag(d, e)
 
     #     a
     #    / \
@@ -86,24 +92,24 @@ defmodule AllTheTagsTest do
     #    \ /
     #     d -> e
 
-    e = set_up_e(handle)
-    handle |> AllTheTags.add_tag(e, "a")
+    {:ok, ent} = AllTheTags.new_entity(handle)
+    handle |> AllTheTags.add_tag(ent, a)
 
-    {:ok, tags_list} = AllTheTags.entity_tags(handle, e)
+    {:ok, tags_list} = AllTheTags.entity_tags(handle, ent)
     tags_list = implies_set_to_hash(tags_list)
 
     should_be = [
-      {:direct, "a"},
-      {:implied, "b", ["a"]},
-      {:implied, "c", ["a"]},
-      {:implied, "d", ["b", "c"]},
-      {:implied, "e", ["d"]}
+      {:direct, a},
+      {:implied, b, [a]},
+      {:implied, c, [a]},
+      {:implied, d, [b, c]},
+      {:implied, e, [d]}
     ] |> implies_set_to_hash
 
     assert HashSet.equal?(tags_list, should_be)
 
-    ["a", "b", "c", "d", "e"] |> Enum.map(fn(tag) ->
-      assert {:ok, [e]} == AllTheTags.do_query(handle, tag)
+    [a, b, c, d, e] |> Enum.map(fn(tag) ->
+      assert {:ok, [ent]} == AllTheTags.do_query(handle, tag)
     end)
   end
 
@@ -114,7 +120,7 @@ defmodule AllTheTagsTest do
     res = handle |> AllTheTags.do_query(nil)
     assert res == {:ok, [e]}
 
-    ["foo", "bar", {:and, "foo", "bar"}, {:or, "foo", "bar"}] |> Enum.each(fn(q) ->
+    [@foo, @bar, {:and, @foo, @bar}, {:or, @foo, @bar}] |> Enum.each(fn(q) ->
       res = handle |> AllTheTags.do_query(q)
       assert res == {:ok, []}
     end)
@@ -122,25 +128,25 @@ defmodule AllTheTagsTest do
 
   test "query on entity with tags", %{handle: handle} do
     e = set_up_e(handle)
-    f = handle |> AllTheTags.new_entity
-    g = handle |> AllTheTags.new_entity
+    {:ok, f} = handle |> AllTheTags.new_entity
+    {:ok, g} = handle |> AllTheTags.new_entity
 
-    :ok = handle |> AllTheTags.add_tag(e, "foo")
-    :ok = handle |> AllTheTags.add_tag(f, "bar")
-    # e has "foo"
-    # f has "bar"
+    :ok = handle |> AllTheTags.add_tag(e, @foo)
+    :ok = handle |> AllTheTags.add_tag(f, @bar)
+    # e has @foo
+    # f has @bar
     # g has none
 
-    {:ok, res} = handle |> AllTheTags.do_query("foo")
+    {:ok, res} = handle |> AllTheTags.do_query(@foo)
     assert same_lists(res, [e])
 
-    {:ok, res} = handle |> AllTheTags.do_query("bar")
+    {:ok, res} = handle |> AllTheTags.do_query(@bar)
     assert same_lists(res, [f])
 
-    {:ok, res} = handle |> AllTheTags.do_query({:or, "foo", "bar"})
+    {:ok, res} = handle |> AllTheTags.do_query({:or, @foo, @bar})
     assert same_lists(res, [e, f])
 
-    {:ok, res} = handle |> AllTheTags.do_query({:and, "foo", "bar"})
+    {:ok, res} = handle |> AllTheTags.do_query({:and, @foo, @bar})
     assert same_lists(res, [])
 
     # nil should include all entities
@@ -150,38 +156,38 @@ defmodule AllTheTagsTest do
     {:ok, res} = handle |> AllTheTags.do_query({:not, nil})
     assert same_lists(res, [])
 
-    {:ok, res} = handle |> AllTheTags.do_query({:not, "foo"})
+    {:ok, res} = handle |> AllTheTags.do_query({:not, @foo})
     assert same_lists(res, [f, g])
   end
 
   test "query with unknown tags", %{handle: handle} do
-    e = handle |> AllTheTags.new_entity
+    {:ok, e} = handle |> AllTheTags.new_entity
     assert {:ok, [e]} == AllTheTags.do_query(handle, nil)
     assert :error     == AllTheTags.do_query(handle, "blah")
   end
 
   test "get_implies works", %{handle: handle} do
-    handle |> AllTheTags.new_tag("foo")
-    handle |> AllTheTags.new_tag("bar")
-    handle |> AllTheTags.new_tag("baz")
+    handle |> AllTheTags.new_tag(@foo)
+    handle |> AllTheTags.new_tag(@bar)
+    handle |> AllTheTags.new_tag(@baz)
 
-    assert AllTheTags.get_implies(handle, "foo") == {:ok, []}
-    AllTheTags.imply_tag(handle, "foo", "bar")
-    assert AllTheTags.get_implies(handle, "foo") == {:ok, ["bar"]}
-    AllTheTags.imply_tag(handle, "foo", "baz")
-    assert AllTheTags.get_implies(handle, "foo") == {:ok, ["bar", "baz"]}
+    assert AllTheTags.get_implies(handle, @foo) == {:ok, []}
+    AllTheTags.imply_tag(handle, @foo, @bar)
+    assert AllTheTags.get_implies(handle, @foo) == {:ok, [@bar]}
+    AllTheTags.imply_tag(handle, @foo, @baz)
+    assert AllTheTags.get_implies(handle, @foo) == {:ok, [@bar, @baz]}
   end
 
   test "get_implied_by works", %{handle: handle} do
-    handle |> AllTheTags.new_tag("foo")
-    handle |> AllTheTags.new_tag("bar")
-    handle |> AllTheTags.new_tag("baz")
+    handle |> AllTheTags.new_tag(@foo)
+    handle |> AllTheTags.new_tag(@bar)
+    handle |> AllTheTags.new_tag(@baz)
 
-    assert AllTheTags.get_implied_by(handle, "bar") == {:ok, []}
-    AllTheTags.imply_tag(handle, "foo", "bar")
-    assert AllTheTags.get_implied_by(handle, "bar") == {:ok, ["foo"]}
-    AllTheTags.imply_tag(handle, "baz", "bar")
-    assert AllTheTags.get_implied_by(handle, "bar") == {:ok, ["foo", "baz"]}
+    assert AllTheTags.get_implied_by(handle, @bar) == {:ok, []}
+    AllTheTags.imply_tag(handle, @foo, @bar)
+    assert AllTheTags.get_implied_by(handle, @bar) == {:ok, [@foo]}
+    AllTheTags.imply_tag(handle, @baz, @bar)
+    assert AllTheTags.get_implied_by(handle, @bar) == {:ok, [@foo, @baz]}
   end
 
   test "inserting entities in parallel works", %{handle: handle} do
@@ -206,19 +212,20 @@ defmodule AllTheTagsTest do
   test "can dirty the context, and still call query on it", %{handle: handle} do
     e = handle |> set_up_e
 
-    handle |> AllTheTags.add_tag(e, "foo")
+    :ok = handle |> AllTheTags.add_tag(e, @foo)
 
-    handle |> AllTheTags.imply_tag("foo", "bar")
-    handle |> AllTheTags.imply_tag("bar", "foo")
+    handle |> AllTheTags.imply_tag(@foo, @bar)
+    handle |> AllTheTags.imply_tag(@bar, @foo)
     assert false == handle |> AllTheTags.is_dirty
-    assert {:ok, [e]} == handle |> AllTheTags.do_query("foo")
-    assert {:ok, [e]} == handle |> AllTheTags.do_query("bar")
 
-    handle |> AllTheTags.unimply_tag("foo", "bar")
+    assert {:ok, [e]} == handle |> AllTheTags.do_query(@foo)
+    assert {:ok, [e]} == handle |> AllTheTags.do_query(@bar)
+
+    handle |> AllTheTags.unimply_tag(@foo, @bar)
     assert true == handle |> AllTheTags.is_dirty
 
-    assert {:ok, [e]} == handle |> AllTheTags.do_query("foo")
-    assert {:ok, []}  == handle |> AllTheTags.do_query("bar")
+    assert {:ok, [e]} == handle |> AllTheTags.do_query(@foo)
+    assert {:ok, []}  == handle |> AllTheTags.do_query(@bar)
 
     assert false == handle |> AllTheTags.is_dirty
   end
@@ -226,24 +233,26 @@ defmodule AllTheTagsTest do
   test "can remove tags", %{handle: handle} do
     e = handle |> set_up_e
 
-    assert :ok        == AllTheTags.add_tag(handle, e, "foo")
-    assert {:ok, [e]} == AllTheTags.do_query(handle, "foo")
+    assert :ok        == AllTheTags.add_tag(handle, e, @foo)
+    assert {:ok, [e]} == AllTheTags.do_query(handle, @foo)
 
-    assert :ok       == AllTheTags.remove_tag(handle, e, "foo")
-    assert {:ok, []} == AllTheTags.do_query(handle, "foo")
+    assert :ok       == AllTheTags.remove_tag(handle, e, @foo)
+    assert {:ok, []} == AllTheTags.do_query(handle, @foo)
 
-    assert :error == AllTheTags.remove_tag(handle, e, "foo")
+    assert :error == AllTheTags.remove_tag(handle, e, @foo)
   end
 
   test "can create tags with specific IDs", %{handle: handle} do
-    t1 = handle |> AllTheTags.new_tag("foo", 1)
-    assert t1 == :ok
+    assert {:ok, 10} == handle |> AllTheTags.new_tag(10)
+    assert {:ok, 15} == handle |> AllTheTags.new_tag(15)
+    assert :error == handle |> AllTheTags.new_tag(10)
+
   end
 
   defp set_up_e(handle) do
-    handle |> AllTheTags.new_tag("foo")
-    handle |> AllTheTags.new_tag("bar")
-    e = handle |> AllTheTags.new_entity
+    {:ok, @foo} = handle |> AllTheTags.new_tag(@foo)
+    {:ok, @bar} = handle |> AllTheTags.new_tag(@bar)
+    {:ok, e}    = handle |> AllTheTags.new_entity
     e
   end
   defp same_lists(l1, l2) do

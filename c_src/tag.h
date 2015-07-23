@@ -1,7 +1,6 @@
 #ifndef __TAGS_H__
 #define __TAGS_H__
 
-#include <string>
 #include <unordered_set>
 #include <cassert>
 
@@ -13,7 +12,6 @@ struct SCCMetaNode;
 
 struct Tag {
   id_type id;
-  std::string value;
 
   // TODO: implement tag implications
   std::unordered_set<Tag*> implies;
@@ -28,8 +26,8 @@ struct Tag {
   int _entity_count;
 
 public:
-  Tag(Context *context_, id_type _id, const std::string& _value) :
-    id(_id), value(_value),
+  Tag(Context *context_, id_type _id) :
+    id(_id),
     context(context_),
     meta_node(nullptr),
     _entity_count(0) {}

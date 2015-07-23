@@ -5,16 +5,9 @@
 
 // converts erlang clause AST into native AST representation
 QueryClause *build_clause(ErlNifEnv *env, const ERL_NIF_TERM term, const Context& c) {
-  if(enif_is_list(env, term) || enif_is_binary(env, term)) {
-    // literal tag string
-    // convert to string, get tag by that ID
-    char tag_val[100];
-    if(enif_binary_or_list_to_string(env, term, tag_val, 100) <= 0) {
-      // couldn't convert
-      return nullptr;
-    }
-    std::string stag_val(tag_val);
-    auto tag = c.tag_by_value(stag_val);
+  if(enif_is_number(env, term)) {
+
+    auto tag = get_tag_from_arg(c, env, term);
     if(!tag) return nullptr;
 
     return build_lit(tag);
@@ -104,23 +97,11 @@ int enif_binary_or_list_to_string(ErlNifEnv *env, ERL_NIF_TERM term, char *buf, 
 }
 
 Tag *get_tag_from_arg(const Context& context, ErlNifEnv* env, ERL_NIF_TERM term) {
-  char tag_val[100];
-  if(enif_binary_or_list_to_string(env, term, tag_val, 100) <= 0) {
+
+  id_type tag_id;
+  if(!enif_get_uint(env, term, &tag_id)) {
     return nullptr;
   }
 
-  std::string stag_val(tag_val);
-
-  // look up tag based on value given
-  return context.tag_by_value(stag_val);
-}
-
-ERL_NIF_TERM binary_from_string(const std::string& str, ErlNifEnv *env) {
-  ErlNifBinary bin;
-  if(!enif_alloc_binary(str.size(), &bin)) return A_ERR(env);
-  // copy c string value into the binary
-  assert(bin.size == str.size());
-  strncpy((char*)bin.data, str.c_str(), bin.size);
-
-  return enif_make_binary(env, &bin);
+  return context.tag_by_id(tag_id);
 }

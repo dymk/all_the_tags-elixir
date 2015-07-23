@@ -141,7 +141,7 @@ struct QueryClauseLit : public QueryClause {
 
   virtual void debug_print(int indent = 0) const {
     print_indent(indent);
-    std::cerr << "lit(" << t->entity_count() << ") -> " << t->value << std::endl;
+    std::cerr << "lit(" << t->entity_count() << ") -> " << t->id << std::endl;
   }
 };
 

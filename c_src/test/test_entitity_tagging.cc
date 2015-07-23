@@ -18,8 +18,8 @@ public:
     e1 = ctx.new_entity();
     e2 = ctx.new_entity();
     assert(e1 && e2);
-    foo = ctx.new_tag("foo");
-    bar = ctx.new_tag("bar");
+    foo = ctx.new_tag();
+    bar = ctx.new_tag();
   }
 };
 
@@ -34,10 +34,10 @@ public:
     e2 = ctx.new_entity();
     assert(e1 && e2);
 
-    a = ctx.new_tag("a");
-    b = ctx.new_tag("b");
-    c = ctx.new_tag("c");
-    d = ctx.new_tag("d");
+    a = ctx.new_tag();
+    b = ctx.new_tag();
+    c = ctx.new_tag();
+    d = ctx.new_tag();
   }
 };
 
@@ -52,12 +52,12 @@ public:
     e2 = ctx.new_entity();
     assert(e1 && e2);
 
-    cat = ctx.new_tag("cat");
-    dog = ctx.new_tag("dog");
-    feline = ctx.new_tag("feline");
-    cainine = ctx.new_tag("cainine");
-    zoo = ctx.new_tag("zoo");
-    zoo2 = ctx.new_tag("zoo2");
+    cat = ctx.new_tag();
+    dog = ctx.new_tag();
+    feline = ctx.new_tag();
+    cainine = ctx.new_tag();
+    zoo = ctx.new_tag();
+    zoo2 = ctx.new_tag();
   }
 };
 

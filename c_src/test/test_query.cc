@@ -14,11 +14,11 @@ public:
     e2 = ctx.new_entity();
     assert(e1 && e2);
 
-    a = ctx.new_tag("a");
-    b = ctx.new_tag("b");
-    c = ctx.new_tag("c");
-    d = ctx.new_tag("d");
-    e = ctx.new_tag("e");
+    a = ctx.new_tag();
+    b = ctx.new_tag();
+    c = ctx.new_tag();
+    d = ctx.new_tag();
+    e = ctx.new_tag();
   }
 };
 

@@ -10,7 +10,8 @@ defmodule AllTheTags do
     not_loaded
   end
 
-  def new_tag(_handle, _tag_val, _tag_id \\ nil) do
+  # @spec new_tag(AllTheTags, integer | nil) :: {:ok, integer} | :error
+  def new_tag(_handle, _tag_id \\ nil) do
     not_loaded
   end
   def new_entity(_handle, _entity_id \\ nil) do
