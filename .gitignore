@@ -4,7 +4,7 @@ erl_crash.dump
 *.ez
 *.so
 *.o
-/priv_dir
+/priv
 .DS_Store
 *.dSYM
 runner

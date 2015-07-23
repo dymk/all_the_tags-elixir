@@ -1,19 +1,23 @@
 defmodule AllTheTags do
+  @opaque t :: __MODULE__
+
   @on_load :init
+  @spec init :: :ok
   def init() do
-    :erlang.load_nif("./priv_dir/lib_tags", 0)
-    :ok = init_lib
+    path = :filename.join(:code.priv_dir(:all_the_tags), 'lib_tags')
+    :erlang.load_nif(path, 0)
     :ok
   end
 
+  @spec new :: t
   def new() do
     not_loaded
   end
 
-  # @spec new_tag(AllTheTags, integer | nil) :: {:ok, integer} | :error
   def new_tag(_handle, _tag_id \\ nil) do
     not_loaded
   end
+
   def new_entity(_handle, _entity_id \\ nil) do
     not_loaded
   end
@@ -21,6 +25,7 @@ defmodule AllTheTags do
   def num_tags(_handle) do
     not_loaded
   end
+
   def num_entities(_handle) do
     not_loaded
   end
@@ -48,10 +53,6 @@ defmodule AllTheTags do
 
   def mark_dirty(_handle), do: not_loaded
   def is_dirty(_handle),   do: not_loaded
-
-  defp init_lib() do
-    not_loaded
-  end
 
   defp not_loaded do
     "NIF library not loaded"

@@ -7,10 +7,14 @@
 
 static bool debug = false;
 
-ErlNifResourceType *context_type = nullptr;
+static ErlNifResourceType *context_type = nullptr;
+
 static void context_resource_cleanup(ErlNifEnv *env, void *arg) {
   UNUSED(env);
-  if(debug) std::cout << "native: cleaning up resource (STUB)" << std::endl;
+  if(debug) {
+    std::cerr << "native: cleaning up resource (" << arg << ")" << std::endl;
+    std::cerr.flush();
+  }
 
   assert(arg);
   ContextWrapper *cw = (ContextWrapper*) arg;
@@ -19,29 +23,29 @@ static void context_resource_cleanup(ErlNifEnv *env, void *arg) {
 
 // main entrypoint that erlang talks to to perform queries on
 // a tag/entity collection context
-ERL_FUNC(init_lib) {
-  UNUSED(argc);
-  UNUSED(argv);
-  if(debug) std::cout << "native: init native tags api" << std::endl;
+static int init_lib(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
+  UNUSED(priv_data);
+  UNUSED(load_info);
+
+  if(debug) std::cerr << "native: init native tags api" << std::endl;
 
   if(context_type != nullptr) {
     if(debug) std::cerr << "native: already allocated resource type; double init?" << std::endl;
-    return A_ERR(env);
+    return -1;
   }
 
-  ErlNifResourceFlags flags = (ErlNifResourceFlags)
-  (ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER);
   context_type = enif_open_resource_type(env,
     nullptr, "tags_nif_handle",
     &context_resource_cleanup,
-    flags, nullptr);
+    ERL_NIF_RT_CREATE, nullptr);
 
   if(context_type == nullptr) {
     if(debug) std::cerr << "native: couldn't make resource type" << std::endl;
-    return A_ERR(env);
+    return -2;
   }
 
-  return A_OK(env);
+  if(debug) std::cerr << "native: done with initialize" << std::endl;
+  return 0;
 }
 
 ERL_FUNC(new_) {
@@ -51,11 +55,11 @@ ERL_FUNC(new_) {
   assert(context_type);
   ContextWrapper *cw = (ContextWrapper*)enif_alloc_resource(context_type, sizeof(ContextWrapper));
   if(cw == nullptr) {
-    if(debug) std::cout << "native: could not allocate resource" << std::endl;
+    if(debug) std::cerr << "native: could not allocate resource" << std::endl;
     return A_ERR(env);
   }
   else {
-    if(debug) std::cout << "native: allocated a resource (" << sizeof(Context) << " bytes)" << std::endl;
+    if(debug) std::cerr << "native: allocated a resource (" << (void*)cw << ", " << sizeof(Context) << " bytes)" << std::endl;
   }
 
   // call ctor on erlang allocated memory
@@ -87,7 +91,7 @@ ERL_FUNC(new_tag) {
   }
 
   if(debug) {
-    std::cout << "native: added tag " << t->id << std::endl;
+    std::cerr << "native: added tag " << t->id << std::endl;
   }
 
   return enif_make_tuple2(env, A_OK(env), enif_make_uint(env, t->id));
@@ -265,7 +269,7 @@ ERL_FUNC(do_query) {
     goto Lmake_clean;
   }
 
-  if(debug) std::cout << "native: do_query called" << std::endl;
+  if(debug) std::cerr << "native: do_query called" << std::endl;
 
   QueryClause *c = build_clause(env, argv[1], context);
   if(c == nullptr) { return A_ERR(env); }
@@ -377,7 +381,6 @@ ERL_FUNC(make_clean) {
 #endif
 
 static ErlNifFunc nif_funcs[] = {
-  {"init_lib",         0, init_lib,         0}, // private
   {"new",              0, new_,             0},
   {"new_tag" ,         2, new_tag,          0},
   {"num_tags",         1, num_tags,         0},
@@ -396,4 +399,4 @@ static ErlNifFunc nif_funcs[] = {
   // {"make_clean",       1, make_clean,       0}
 };
 
-ERL_NIF_INIT(Elixir.AllTheTags, nif_funcs, NULL, NULL, NULL, NULL)
+ERL_NIF_INIT(Elixir.AllTheTags, nif_funcs, init_lib, NULL, NULL, NULL)

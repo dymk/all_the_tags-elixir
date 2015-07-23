@@ -20,6 +20,15 @@ defmodule AllTheTagsTest do
     assert a != b
   end
 
+  def alloc_one do
+    {:ok, _} = AllTheTags.new
+  end
+
+  test "garbage collector frees the NIF" do
+    1..10 |> Enum.each(fn(_) -> alloc_one end)
+    :erlang.garbage_collect()
+  end
+
   test "can create tags with explicit IDs", %{handle: handle} do
     assert {:ok, 1} == AllTheTags.new_tag(handle, 1)
   end
@@ -246,7 +255,6 @@ defmodule AllTheTagsTest do
     assert {:ok, 10} == handle |> AllTheTags.new_tag(10)
     assert {:ok, 15} == handle |> AllTheTags.new_tag(15)
     assert :error == handle |> AllTheTags.new_tag(10)
-
   end
 
   defp set_up_e(handle) do

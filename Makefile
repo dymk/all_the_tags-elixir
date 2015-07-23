@@ -23,7 +23,7 @@ LIBASMJIT = $(VENDIR)/asmjit/libasmjit.a
 CFLAGS += -I$(ASMJITDIR)/src
 
 API_LIB_SRC = $(SOURCE_FILES) $(ERL_API_FILES) $(LIBASMJIT)
-priv_dir/lib_tags.so: priv_dir $(API_LIB_SRC) $(LIBASMJIT) $(H_FILES) $(wildcard c_src/erl_api/*.h)
+priv/lib_tags.so: priv $(API_LIB_SRC) $(LIBASMJIT) $(H_FILES) $(wildcard c_src/erl_api/*.h)
 	$(CXX) -o $@ $(API_LIB_SRC) $(LIBASMJIT) -I$(ERLANG_PATH) -fPIC $(LDLIBS) $(LDFLAGS) $(CFLAGS) -shared
 
 $(LIBASMJIT):
@@ -64,10 +64,10 @@ test: c_src/test/runner
 valgrind: c_src/test/runner
 	valgrind --leak-check=full ./c_src/test/runner
 
-priv_dir:
-	mkdir -p priv_dir
+priv:
+	mkdir -p priv
 
 clean:
-	rm -rf priv_dir/*
+	rm -rf priv/*
 	rm -rf c_src/test/runner
 	rm -rf $(TEST_O)
