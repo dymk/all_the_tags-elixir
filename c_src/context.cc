@@ -433,34 +433,64 @@ void Context::make_clean() {
   }
 }
 
-Tag* Context::new_tag(const std::string& val) {
-  std::string tmp = val;
-  std::transform(tmp.begin(), tmp.end(), tmp.begin(), ::tolower);
+Tag *Context::new_tag_common(const std::string& val, id_type id) {
+  auto t = new Tag(this, id, val);
+
+  this->value_to_tag.insert(std::make_pair(val, t)); // all values
+  this->id_to_tag.insert(std::make_pair(id, t));
+
+  return t;
+}
+
+Tag* Context::new_tag(const std::string& val, id_type id) {
+  if(id_to_tag.find(id) != id_to_tag.end()) {
+    return nullptr;
+  }
 
   if(tag_by_value(val)) {
     return nullptr;
   }
 
-  auto t = new Tag(this, last_tag_id++, val);
+  return new_tag_common(val, id);
+}
 
-  value_to_tag.insert(std::make_pair(tmp, t)); // all values
-  id_to_tag.insert(std::make_pair(t->id, t));
+Tag *Context::new_tag(const std::string& val) {
+  if(tag_by_value(val)) {
+    return nullptr;
+  }
 
-  return t;
+  while(true) {
+    id_type id = last_tag_id++;
+    if(id_to_tag.find(id) == id_to_tag.end()) {
+      return new_tag_common(val, id);
+    }
+  }
+}
+
+Entity* Context::new_entity(id_type id) {
+  if(id_to_entity.find(id) == id_to_entity.end()) {
+    // id not present
+    auto e = new Entity(id);
+    id_to_entity.insert(std::make_pair(id, e));
+    return e;
+  }
+
+  return nullptr;
 }
 
 Entity* Context::new_entity() {
-  auto e = new Entity(last_entity_id++);
-  id_to_entity.insert(std::make_pair(e->id, e));
-  return e;
+  // no ID given, keep looping until we find the next available ID
+  while(true) {
+    auto e = new_entity(last_entity_id++);
+    if(e) {
+      return e;
+    }
+  }
 }
 
 Tag* Context::tag_by_value(const std::string& val) const {
-  // downcase the string
-  std::string tmp = val;
-  std::transform(tmp.begin(), tmp.end(), tmp.begin(), ::tolower);
 
-  auto iter = value_to_tag.find(tmp);
+  auto iter = value_to_tag.find(val);
   if(iter != value_to_tag.end()) {
     return (*iter).second;
   }

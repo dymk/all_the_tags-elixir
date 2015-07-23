@@ -15,15 +15,10 @@ defmodule AllTheTagsTest do
     assert :error == AllTheTags.new_tag(handle, "foo")
   end
 
-  test "case of tag does not matter", %{handle: handle} do
-    assert :ok == AllTheTags.new_tag(handle, "foo")
-    assert :error == AllTheTags.new_tag(handle, "Foo")
-    assert :error == AllTheTags.new_tag(handle, "FOO")
-  end
-
-  test "case doesn't matter (2)", %{handle: handle} do
-    assert :ok == AllTheTags.new_tag(handle, "Foo")
-    assert :error == AllTheTags.new_tag(handle, "foo")
+  test "case of tag matters", %{handle: handle} do
+    assert :ok    == AllTheTags.new_tag(handle, "foo")
+    assert :ok    == AllTheTags.new_tag(handle, "Foo")
+    assert :ok    == AllTheTags.new_tag(handle, "FOO")
     assert :error == AllTheTags.new_tag(handle, "FOO")
   end
 
@@ -238,6 +233,11 @@ defmodule AllTheTagsTest do
     assert {:ok, []} == AllTheTags.do_query(handle, "foo")
 
     assert :error == AllTheTags.remove_tag(handle, e, "foo")
+  end
+
+  test "can create tags with specific IDs", %{handle: handle} do
+    t1 = handle |> AllTheTags.new_tag("foo", 1)
+    assert t1 == :ok
   end
 
   defp set_up_e(handle) do

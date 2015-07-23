@@ -67,7 +67,7 @@ ERL_FUNC(new_) {
 }
 
 ERL_FUNC(new_tag) {
-  ENSURE_ARG(argc == 2);
+  ENSURE_ARG(argc == 3);
   ENSURE_CONTEXT(env, argv[0]);
   WriteLock lock(cw);
 
@@ -75,13 +75,24 @@ ERL_FUNC(new_tag) {
   ENSURE_ARG(enif_binary_or_list_to_string(env, argv[1], value, 100) > 0);
   std::string s_value(value);
 
-  // allocate new tag, insert into the
-  auto t = context.new_tag(s_value);
+  Tag *t;
+  if(enif_compare(argv[2], enif_make_atom(env, "nil")) == 0) {
+    t = context.new_tag(s_value);
+  }
+  else {
+    id_type id;
+    ENSURE_ARG(enif_get_uint(env, argv[2], &id));
+    t = context.new_tag(s_value, id);
+  }
+
   if(!t) {
     return A_ERR(env);
   }
 
-  if(debug) std::cout << "native: added tag with value " << s_value << std::endl;
+  if(debug) {
+    std::cout << "native: added tag with value " << s_value << "` id " << t->id << std::endl;
+  }
+
   return A_OK(env);
 }
 
@@ -94,11 +105,21 @@ ERL_FUNC(num_tags) {
 }
 
 ERL_FUNC(new_entity) {
-  ENSURE_ARG(argc == 1);
+  ENSURE_ARG(argc == 2);
   ENSURE_CONTEXT(env, argv[0]);
   WriteLock lock(cw);
 
-  auto e = context.new_entity();
+  Entity *e;
+
+  if(enif_compare(argv[1], enif_make_atom(env, "nil")) == 0) {
+    e = context.new_entity();
+  }
+  else {
+    id_type id;
+    ENSURE_ARG(enif_get_uint(env, argv[1], &id));
+    e = context.new_entity(id);
+  }
+
   return enif_make_uint(env, e->id);
 }
 
@@ -363,9 +384,9 @@ ERL_FUNC(make_clean) {
 static ErlNifFunc nif_funcs[] = {
   {"init_lib",         0, init_lib,         0}, // private
   {"new",              0, new_,             0},
-  {"new_tag" ,         2, new_tag,          0},
+  {"new_tag" ,         3, new_tag,          0},
   {"num_tags",         1, num_tags,         0},
-  {"new_entity",       1, new_entity,       0},
+  {"new_entity",       2, new_entity,       0},
   {"num_entities",     1, num_entities,     0},
   {"add_tag",          3, add_tag,          0},
   {"remove_tag",       3, remove_tag,       0},

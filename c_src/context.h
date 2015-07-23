@@ -28,6 +28,9 @@ private:
   // to recalculate the metagraph
   bool recalc_metagraph;
 
+  // internals
+  Tag *new_tag_common(const std::string& val, id_type id);
+
 public:
   // meta nodes representing the DAG of tag implications
   std::unordered_set<SCCMetaNode*> meta_nodes;
@@ -42,9 +45,11 @@ public:
 
   // returns a new tag with value 'val'
   Tag *new_tag(const std::string& val);
+  Tag *new_tag(const std::string& val, id_type id);
 
   // returns a newly created entity
   Entity *new_entity();
+  Entity *new_entity(id_type id);
 
   // look up tag by value or id
   Tag* tag_by_value(const std::string& val) const;
