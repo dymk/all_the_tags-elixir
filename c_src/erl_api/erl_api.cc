@@ -121,6 +121,10 @@ ERL_FUNC(new_entity) {
     e = context.new_entity(id);
   }
 
+  if(e == nullptr) {
+    return A_ERR(env);
+  }
+
   return enif_make_tuple2(env, A_OK(env), enif_make_uint(env, e->id));
 }
 

@@ -33,6 +33,16 @@ defmodule AllTheTagsTest do
     assert {:ok, 1} == AllTheTags.new_tag(handle, 1)
   end
 
+  test "creating tag with explicit IDs can't dup items", %{handle: handle} do
+    assert {:ok, 1} == AllTheTags.new_tag(handle, 1)
+    assert :error   == AllTheTags.new_tag(handle, 1)
+  end
+
+  test "creating entity with explicit IDs can't dup items", %{handle: handle} do
+    assert {:ok, 1} == AllTheTags.new_entity(handle, 1)
+    assert :error   == AllTheTags.new_entity(handle, 1)
+  end
+
   test "num_tags works", %{handle: handle} do
     assert 0 == AllTheTags.num_tags(handle)
     AllTheTags.new_tag(handle)
